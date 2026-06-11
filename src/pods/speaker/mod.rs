@@ -17,34 +17,62 @@
 //!
 //! 1. Receive [`Task`] with text payload
 //! 2. Build prompt: system prompt + user message
-//! 3. Call LLM via rig
-//! 4. Send [`TextResponse`] back to hive via [`MessageRouter`]
+//! 3. Call LLM via rig Ollama provider
+//! 4. Send [`TaskResult`] back to hive
 
 use crate::pod::{Pod, PodType, Task, TaskResult};
+use rig_core::{
+    client::{CompletionClient, ProviderClient},
+    completion::Prompt,
+    providers::ollama,
+};
 
-/// Speaker pod — conversational agent.
+/// Speaker pod — conversational agent using local Ollama.
 ///
-/// Holds its own rig client and system prompt, loaded from the bundle
+/// Holds its own rig Ollama client and system prompt, loaded from the bundle
 /// at initialization time.
 pub struct SpeakerPod {
-    // TODO: rig_client: rig::Client — LLM client for completions
+    /// Ollama client connected to local inference server (default: localhost:11434).
+    /// Initialized in `init()` so connection errors surface at actor startup.
+    client: Option<ollama::Client>,
+    /// System prompt embedded from prompts/system.md at compile time.
     system_prompt: String,
+    /// Model identifier for Ollama (e.g., "qwen2.5:14b", "llama3.2").
+    model: String,
 }
 
 impl SpeakerPod {
     /// Create a new speaker pod with default configuration.
+    ///
+    /// The Ollama client is not connected yet — call `init()` before use.
     pub fn new() -> Self {
         SpeakerPod {
-            // TODO: Initialize rig client with config (api_key, model, etc.)
+            client: None,
             system_prompt: include_str!("prompts/system.md").to_string(),
+            model: "qwen2.5:14b".to_string(),
         }
     }
 
-    /// Run the rig loop for a single chat turn (blocking, no async yet).
+    /// Run the rig loop for a single chat turn.
     ///
-    /// Builds the full prompt and returns it. Actual LLM call pending rig integration.
-    fn chat(&self, input: &str) -> String {
-        format!("[{}] User: {}\nAssistant: ", self.system_prompt, input)
+    /// Builds an agent with the system prompt, calls the LLM, and returns
+    /// the response text.
+    async fn chat(
+        &self,
+        input: &str,
+    ) -> anyhow::Result<String> {
+        let client = self
+            .client
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Ollama client not initialized — call init() first"))?;
+
+        let agent = client
+            .agent(&self.model)
+            .preamble(&self.system_prompt)
+            .build();
+
+        let response = agent.prompt(input).await?;
+        Ok(response)
     }
 }
 
@@ -62,8 +90,9 @@ impl Pod for SpeakerPod {
     }
 
     fn init(&mut self) -> anyhow::Result<()> {
-        // System prompt already loaded from bundle via include_str!
-        // TODO: Validate rig client connectivity, warm caches.
+        // Connect to local Ollama server (no auth required by default).
+        // Fails fast here so the actor stops if Ollama is not running.
+        self.client = Some(ollama::Client::new(rig_core::client::Nothing)?);
         Ok(())
     }
 
@@ -71,8 +100,14 @@ impl Pod for SpeakerPod {
         &mut self,
         task: Task,
     ) -> anyhow::Result<TaskResult> {
-        let response = self.chat(&task.text);
-        // Route reply back to the same channel if one was provided
+        // Note: handle_task is sync, but chat() is async.
+        // TODO: Spawn chat on tokio runtime and block_on, or make handle_task async.
+        // For now, return a placeholder — real async wiring needs Pod trait change.
+        let response = format!(
+            "[Speaker: {}] Would reply to: {}",
+            self.model, task.text
+        );
+
         let result = match task.channel {
             Some(channel) => TaskResult::reply(response, channel),
             None => TaskResult::text(response),

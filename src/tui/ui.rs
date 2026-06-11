@@ -1,44 +1,77 @@
 //! TUI rendering — draws the hive dashboard.
-//!
-//! The UI is split into three panels: pod registry (left), active pods (right),
-/// and activity log (bottom). All data is currently hardcoded; once the hive
-/// exposes real state, this module will query it.
-
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::canvas::{Canvas, Circle, Line as CanvasLine},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 
-use crate::hive::Hive;
+use crate::tui::Tui;
+use crate::{hive::Hive, tui::TuiState};
 
-/// Draw the full TUI dashboard.
-///
-/// Layout: top 70% split horizontally (pod registry | active pods),
-/// bottom 30% activity log.
-///
-/// TODO: Replace all hardcoded data with real hive state queries.
-pub fn draw(f: &mut Frame, hive: &Hive) {
+pub fn draw(f: &mut Frame, hive: &Hive, tui: &Tui) {
     let area = f.area();
 
+    // Split vertically: main content (top) | input bar (bottom, fixed height)
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .constraints([Constraint::Min(0), Constraint::Length(3)])
         .split(area);
 
-    let top = Layout::default()
+    // Split main content horizontally: agent status (left) | hive graph (right)
+    let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(rows[0]);
 
-    draw_pod_registry(f, top[0], hive);
-    draw_active_pods(f, top[1], hive);
-    draw_activity_log(f, rows[1], hive);
+    draw_agent_status(f, columns[0], hive);
+    draw_hive_graph(f, columns[1], hive);
+    draw_input_bar(f, rows[1], &tui.bar_input);
+
+    match tui.state {
+        //spawn
+        TuiState::Spawn => draw_spawn_overlay(f, f.area()),
+        _ => {}
+    }
 }
 
-/// Draw a bordered block with a styled title.
+fn draw_spawn_overlay(f: &mut Frame, area: Rect) {
+    // Center a box over the full terminal area
+    let popup = centered_rect(50, 40, area);
+
+    f.render_widget(Clear, popup); // wipe what's underneath
+    f.render_widget(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(Span::styled(
+                " spawn pod ",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )),
+        popup,
+    );
+}
+
+/// Returns a centered Rect of `percent_x` width and `percent_y` height.
+fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
+    let vertical = Layout::vertical([
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+    ])
+    .split(area);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+    ])
+    .split(vertical[1])[1]
+}
 fn border(title: &str) -> Block<'_> {
     Block::default()
         .borders(Borders::ALL)
@@ -51,72 +84,120 @@ fn border(title: &str) -> Block<'_> {
         ))
 }
 
-/// Draw the pod registry panel (available pod types).
+/// Left panel: one row per agent with status indicator and metadata.
 ///
-/// TODO: Query hive.pod_types() instead of hardcoded list.
-fn draw_pod_registry(f: &mut Frame, area: Rect, _hive: &Hive) {
-    // TODO: Replace with real pod type list from hive.
-    let items = vec![
-        ListItem::new(Line::from(vec![
-            Span::styled("  ◆ ", Style::default().fg(Color::Cyan)),
-            Span::raw("planner"),
-        ])),
-        ListItem::new(Line::from(vec![
-            Span::styled("  ◆ ", Style::default().fg(Color::Cyan)),
-            Span::raw("summarizer"),
-        ])),
-        ListItem::new(Line::from(vec![
-            Span::styled("  ◆ ", Style::default().fg(Color::Cyan)),
-            Span::raw("retriever"),
-        ])),
+/// TODO: Query hive.agents() for real agent snapshots.
+fn draw_agent_status(f: &mut Frame, area: Rect, _hive: &Hive) {
+    // Each agent gets: status dot | name | current task (dimmed)
+    let items: Vec<ListItem> = vec![
+        agent_item("planner-0", "routing goal", AgentState::Running),
+        agent_item("planner-1", "idle", AgentState::Idle),
+        agent_item("retriever-0", "fetch context chunk", AgentState::Running),
+        agent_item("summarizer-0", "—", AgentState::Error),
     ];
 
-    let list = List::new(items).block(border("pod registry"));
-    f.render_widget(list, area);
+    f.render_widget(List::new(items).block(border("agents")), area);
 }
 
-/// Draw the active pods panel (currently running pods).
-///
-/// TODO: Query hive.active_pods() instead of hardcoded list.
-fn draw_active_pods(f: &mut Frame, area: Rect, _hive: &Hive) {
-    // TODO: Replace with real active pod snapshots from hive.
-    let items = vec![
-        ListItem::new(Line::from(vec![
-            Span::styled("  ● ", Style::default().fg(Color::Green)),
-            Span::raw("planner"),
-            Span::styled("  ×2", Style::default().fg(Color::DarkGray)),
-        ])),
-        ListItem::new(Line::from(vec![
-            Span::styled("  ● ", Style::default().fg(Color::Green)),
-            Span::raw("retriever"),
-            Span::styled("  ×1", Style::default().fg(Color::DarkGray)),
-        ])),
-    ];
-
-    let list = List::new(items).block(border("active pods"));
-    f.render_widget(list, area);
+enum AgentState {
+    Running,
+    Idle,
+    Error,
 }
 
-/// Draw the activity log panel (recent hive events).
+fn agent_item(name: &str, task: &str, state: AgentState) -> ListItem<'static> {
+    let (dot, color) = match state {
+        AgentState::Running => ("● ", Color::Green),
+        AgentState::Idle => ("○ ", Color::DarkGray),
+        AgentState::Error => ("✖ ", Color::Red),
+    };
+    ListItem::new(Line::from(vec![
+        Span::styled(format!("  {dot}"), Style::default().fg(color)),
+        Span::styled(name.to_string(), Style::default().fg(Color::White)),
+        Span::raw("  "),
+        Span::styled(task.to_string(), Style::default().fg(Color::DarkGray)),
+    ]))
+}
+
+/// Right panel: Canvas-based graph overlay of the hive topology.
 ///
-/// TODO: Query hive.activity_log() instead of hardcoded lines.
-fn draw_activity_log(f: &mut Frame, area: Rect, _hive: &Hive) {
-    // TODO: Replace with real activity events from hive.
-    let logs = vec![
-        Line::from(vec![
-            Span::styled("  › ", Style::default().fg(Color::DarkGray)),
-            Span::raw("hive started"),
-        ]),
-        Line::from(vec![
-            Span::styled("  › ", Style::default().fg(Color::DarkGray)),
-            Span::raw("planner spawned"),
-        ]),
-        Line::from(vec![
-            Span::styled("  › ", Style::default().fg(Color::DarkGray)),
-            Span::raw("planner completed: plan route to goal"),
-        ]),
+/// Nodes are agents; edges represent message channels between them.
+/// Coordinates are in a logical [0, 100] space — Canvas scales to fit.
+///
+/// TODO: Derive positions and edges from hive.topology().
+fn draw_hive_graph(f: &mut Frame, area: Rect, _hive: &Hive) {
+    // Hardcoded node positions in logical [0,100] space.
+    let nodes: &[(&str, f64, f64, Color)] = &[
+        ("planner-0", 50.0, 75.0, Color::Green),
+        ("planner-1", 30.0, 75.0, Color::DarkGray),
+        ("retriever-0", 70.0, 50.0, Color::Green),
+        ("summarizer-0", 50.0, 25.0, Color::Red),
     ];
 
-    let paragraph = Paragraph::new(logs).block(border("activity"));
+    // Edges as (from_index, to_index)
+    let edges: &[(usize, usize)] = &[(0, 2), (1, 2), (2, 3)];
+
+    let canvas = Canvas::default()
+        .block(border("hive"))
+        .x_bounds([0.0, 100.0])
+        .y_bounds([0.0, 100.0])
+        .paint(|ctx| {
+            // Draw edges first so nodes render on top
+            for &(a, b) in edges {
+                let (_, x1, y1, _) = nodes[a];
+                let (_, x2, y2, _) = nodes[b];
+                ctx.draw(&CanvasLine {
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    color: Color::DarkGray,
+                });
+            }
+
+            // Draw nodes
+            for &(label, x, y, color) in nodes {
+                ctx.draw(&Circle {
+                    x,
+                    y,
+                    radius: 2.0,
+                    color,
+                });
+                // Labels sit slightly above each node
+                ctx.print(
+                    x - 4.0,
+                    y + 4.0,
+                    Span::styled(
+                        label,
+                        Style::default().fg(color).add_modifier(Modifier::BOLD),
+                    ),
+                );
+            }
+        });
+
+    f.render_widget(canvas, area);
+}
+
+/// Bottom bar: single-line text input with a prompt glyph.
+///
+/// `input` is the current contents of the input buffer held by app state.
+fn draw_input_bar(f: &mut Frame, area: Rect, input: &str) {
+    let text = Line::from(vec![
+        Span::styled(
+            " ❯ ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(input),
+        Span::styled("█", Style::default().fg(Color::Yellow)), // fake cursor
+    ]);
+
+    let paragraph = Paragraph::new(text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::DarkGray)),
+    );
+
     f.render_widget(paragraph, area);
 }

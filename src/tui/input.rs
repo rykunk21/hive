@@ -2,7 +2,6 @@
 //!
 //! Supports vim-style navigation and single-key commands for pod lifecycle
 /// management. All real actions are stubbed until hive implements them.
-
 use super::actions::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -17,6 +16,9 @@ pub fn handle_key(key: KeyEvent) -> Option<Action> {
         (KeyCode::Char('q'), _) => Some(Action::Quit),
         (KeyCode::Char('c'), KeyModifiers::CONTROL) => Some(Action::Quit),
 
+        // Submit input
+        (KeyCode::Enter, _) => Some(Action::Submit),
+
         // Navigation — stubbed until UI has focusable panels
         /*
         (KeyCode::Down | KeyCode::Char('j'), _) => Some(Action::SelectNext),
@@ -24,13 +26,13 @@ pub fn handle_key(key: KeyEvent) -> Option<Action> {
         (KeyCode::Char('u'), KeyModifiers::CONTROL) => Some(Action::ScrollUp),
         (KeyCode::Char('d'), KeyModifiers::CONTROL) => Some(Action::ScrollDown),
         */
-
         // Pod lifecycle — stubbed until Hive::spawn_pod / Hive::kill_pod exist
-        /*
-        (KeyCode::Char('s'), _) => {
+        (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
             // TODO: Prompt for pod type, then Some(Action::SpawnPod(type_name))
-            None
+            Some(Action::SpawnPod)
         }
+
+        /*
         (KeyCode::Char('x'), _) => {
             // TODO: Prompt for pod ID, then Some(Action::KillPod(pod_id))
             None
@@ -41,7 +43,6 @@ pub fn handle_key(key: KeyEvent) -> Option<Action> {
         /*
         (KeyCode::Char('e'), _) => Some(Action::TriggerEvolve),
         */
-
         _ => None,
     }
 }

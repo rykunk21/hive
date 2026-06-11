@@ -14,6 +14,7 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 
 mod config;
 mod hive;
+mod pod;
 mod tui;
 
 fn main() -> Result<()> {

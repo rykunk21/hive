@@ -1,105 +1,100 @@
 //! Link / communication layer — inter-pod and hive-pod messaging.
 //!
-//! The link layer provides async message passing between pods and the hive.
-/// It handles result aggregation, backpressure, and message routing.
-
-/// Message types for hive-pod and pod-pod communication.
+//! The link layer bridges actix actor messages with the hive's tokio-based
+/// orchestration loop. Pod actors send results back to the hive via the
+/// [`MessageRouter`], which the hive polls in its main loop.
 ///
-/// TODO: Define task assignments, results, status updates, and control signals.
-pub enum Message {
-    // TODO: Task { task_id, pod_type, payload } — hive assigns work to a pod
-    // TODO: Result { task_id, pod_id, output } — pod reports completion
-    // TODO: Status { pod_id, state } — pod reports current state (running, idle, error)
-    // TODO: Knowledge { pod_id, entries } — pod contributes to knowledge base
-    // TODO: Shutdown { pod_id } — hive signals pod to terminate
-    // TODO: Query { pod_type, query, response_tx } — pod asks hive to query knowledge base
+//! ## Architecture
+//!
+//! - Pod actors ([`PodActor`]) send [`PodMessage`] to their [`MessageRouter`] handle
+//! - The hive polls `router.recv()` in a tokio select loop
+//! - Hive dispatches responses to the appropriate handler (result aggregation,
+//!   knowledge base updates, TUI refresh)
+//!
+//! This decouples the actix actor runtime from the hive's async orchestration.
+
+use tokio::sync::mpsc;
+
+// ---------------------------------------------------------------------------
+// Messages sent FROM pod actors TO the hive
+// ---------------------------------------------------------------------------
+
+/// Messages that pod actors send back to the hive.
+///
+/// These travel through the [`MessageRouter`] and are consumed by the
+//! hive's main orchestration loop.
+///
+/// TODO: Define all response variants.
+pub enum PodMessage {
+    // TODO: TaskResult { task_id, pod_id, result } — pod completed a task
+    // TODO: StatusUpdate { pod_id, status } — pod reports state change
+    // TODO: KnowledgeContribution { pod_id, entries } — pod wants to index outputs
+    // TODO: Error { pod_id, error } — pod encountered a fatal error
 }
 
-/// Message router owned by the hive.
+// ---------------------------------------------------------------------------
+// Message Router
+// ---------------------------------------------------------------------------
+
+/// Central message router that collects pod actor outputs.
 ///
-/// Maintains channels to all active pods and routes messages between them.
-/// Also implements backpressure: if a pod's channel is full, the router
-/// can throttle upstream senders or queue messages.
+//! Each [`PodActor`] holds a clone of the router's [`Sender`] to send [`PodMessage`]
+/// back to the hive. The hive owns the [`Receiver`] and polls it.
 ///
-/// TODO: Implement channel management and routing logic.
+/// This replaces the earlier mpsc-per-pod design with a single multi-producer
+/// channel — simpler and sufficient for hive ↔ pod communication.
+///
+/// TODO: Implement Sender/Receiver management and optional backpressure.
 pub struct MessageRouter {
-    // TODO: channels: HashMap<PodId, mpsc::Sender<Message>> — outbound channels to pods
-    // TODO: event_rx: mpsc::Receiver<Message> — inbound events from all pods
-    // TODO: backpressure: BackpressureConfig — queue limits and throttling rules
+    // TODO: tx: mpsc::Sender<PodMessage> — cloned and given to each pod actor
+    // TODO: rx: mpsc::Receiver<PodMessage> — owned by hive, polled in main loop
+    // TODO: backpressure: BackpressureConfig — queue limits and overflow handling
 }
 
 impl MessageRouter {
-    /// Create a new message router.
+    /// Create a new message router with bounded capacity.
     ///
-    /// TODO: Initialize with empty channel map.
+    /// TODO: Create bounded channel with configurable capacity.
     pub fn new() -> Self {
         MessageRouter
     }
 
-    /// Register a new pod's communication channel.
+    /// Get a sender handle to give to a newly spawned pod actor.
     ///
-    /// Called when the hive spawns a pod. Creates the pod's inbound channel
-    /// and returns the sender for the hive to use.
+    /// The actor stores this and uses it to send [`PodMessage`] back to
+    /// the hive. The sender is cheaply cloneable.
     ///
-    /// TODO: Create channel, store sender, spawn listener for pod events.
-    pub fn register_pod(
+    /// TODO: Return cloned sender.
+    pub fn sender(&self,
+    ) -> mpsc::Sender<PodMessage> {
+        todo!("clone and return the router's sender handle")
+    }
+
+    /// Poll for the next message from pod actors.
+    ///
+    /// The hive calls this in its async main loop. Returns `None` if the
+    /// channel is closed (all senders dropped).
+    ///
+    /// TODO: Return next PodMessage or None if channel closed.
+    pub async fn recv(
         &mut self,
-        _pod_id: PodId,
-    ) -> anyhow::Result<mpsc::Sender<Message>> {
-        todo!("create channel for pod and register with router")
+    ) -> Option<PodMessage> {
+        todo!("await next message from the receiver")
     }
 
-    /// Unregister a pod and close its channel.
+    /// Try to receive a message without awaiting.
     ///
-    /// TODO: Remove sender and signal any pending messages.
-    pub fn unregister_pod(&mut self,
-        _pod_id: PodId,
-    ) -> anyhow::Result<()> {
-        todo!("close pod channel and remove from router")
-    }
-
-    /// Route a message to a specific pod.
+    /// Used by the TUI tick to check for pending messages without blocking.
     ///
-    /// TODO: Look up channel, apply backpressure rules, and send.
-    pub fn send_to(
-        &self,
-        _pod_id: PodId,
-        _message: Message,
-    ) -> anyhow::Result<()> {
-        todo!("route message to specific pod with backpressure")
-    }
-
-    /// Broadcast a message to all active pods of a given type.
-    ///
-    /// Used by the hive to fan out tasks to all pods of a type.
-    ///
-    /// TODO: Filter pods by type and send to each.
-    pub fn broadcast_to_type(
-        &self,
-        _pod_type: &str,
-        _message: Message,
-    ) -> anyhow::Result<()> {
-        todo!("broadcast message to all pods of a type")
-    }
-
-    /// Collect incoming events from all pods.
-    ///
-    /// The hive calls this in its main loop to process pod results and status.
-    ///
-    /// TODO: Poll event_rx and return next message.
-    pub fn recv(&mut self) -> anyhow::Result<Option<Message>> {
-        todo!("receive next event from pod event channel")
+    /// TODO: Return next PodMessage or None if empty.
+    pub fn try_recv(
+        &mut self,
+    ) -> Option<PodMessage> {
+        todo!("non-blocking poll of the receiver")
     }
 }
-
-/// Unique identifier for a pod instance.
-///
-/// TODO: Re-export or share with hive::PodId.
-pub struct PodId(String);
 
 /// Configuration for backpressure behavior.
 ///
 /// TODO: Define queue capacity limits, timeout, and overflow strategy.
 pub struct BackpressureConfig;
-
-use tokio::sync::mpsc;

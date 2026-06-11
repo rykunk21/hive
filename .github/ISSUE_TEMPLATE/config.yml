@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Hive Discussions
+    url: https://github.com/rykunk21/hive/discussions
+    about: General questions, ideas, or community discussion
+  - name: Security Issue
+    url: https://github.com/rykunk21/hive/security/advisories/new
+    about: Report a security vulnerability privately

@@ -1,9 +1,9 @@
 //! Link / communication layer — inter-pod and hive-pod messaging.
 //!
 //! The link layer bridges actix actor messages with the hive's tokio-based
-/// orchestration loop. Pod actors send results back to the hive via the
-/// [`MessageRouter`], which the hive polls in its main loop.
-///
+//! orchestration loop. Pod actors send results back to the hive via the
+//! [`MessageRouter`], which the hive polls in its main loop.
+//!
 //! ## Architecture
 //!
 //! - Pod actors ([`PodActor`]) send [`PodMessage`] to their [`MessageRouter`] handle
@@ -22,7 +22,7 @@ use tokio::sync::mpsc;
 /// Messages that pod actors send back to the hive.
 ///
 /// These travel through the [`MessageRouter`] and are consumed by the
-//! hive's main orchestration loop.
+/// hive's main orchestration loop.
 ///
 /// TODO: Define all response variants.
 pub enum PodMessage {
@@ -38,7 +38,7 @@ pub enum PodMessage {
 
 /// Central message router that collects pod actor outputs.
 ///
-//! Each [`PodActor`] holds a clone of the router's [`Sender`] to send [`PodMessage`]
+/// Each [`PodActor`] holds a clone of the router's [`Sender`] to send [`PodMessage`]
 /// back to the hive. The hive owns the [`Receiver`] and polls it.
 ///
 /// This replaces the earlier mpsc-per-pod design with a single multi-producer
@@ -56,7 +56,7 @@ impl MessageRouter {
     ///
     /// TODO: Create bounded channel with configurable capacity.
     pub fn new() -> Self {
-        MessageRouter
+        MessageRouter {}
     }
 
     /// Get a sender handle to give to a newly spawned pod actor.

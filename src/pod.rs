@@ -145,7 +145,7 @@ impl<P: Pod> PodActor<P> {
     /// is used for all subsequent communication.
     ///
     /// TODO: Start the actor on the default arbiter, register with hive.
-    pub fn start_for(pod: P) -> Addr<Self> {
+    pub fn start_for(_pod: P) -> Addr<Self> {
         // TODO: construct PodActor, start on actix arbiter, return Addr
         todo!("construct PodActor, start on actix arbiter, return Addr")
     }

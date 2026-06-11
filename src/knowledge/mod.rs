@@ -23,7 +23,7 @@ impl KnowledgeBase {
     ///
     /// TODO: Accept configuration for storage backend and embedding provider.
     pub fn new() -> Self {
-        KnowledgeBase
+        KnowledgeBase {}
     }
 
     /// Register a new pod type's retrieval index.

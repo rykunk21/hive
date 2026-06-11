@@ -1,0 +1,48 @@
+# Hive configuration example.
+# Copy this to hive.toml and customize for your deployment.
+
+[llm_provider]
+# TODO: Define LLM provider (openai, ollama, anthropic, etc.)
+# provider = "ollama"
+# model = "qwen3-coder-next:cloud"
+# base_url = "http://localhost:11434"
+
+[resource_limits]
+# TODO: Define maximum concurrent pods and resource budgets
+# max_pods = 8
+# memory_mb = 4096
+# token_budget_per_cycle = 100000
+
+[[pod_types]]
+# TODO: Define built-in or custom pod types
+# name = "planner"
+# retrieval_top_k = 5
+# embedding_model = "text-embedding-3-small"
+
+[[pod_types]]
+# name = "summarizer"
+# retrieval_top_k = 10
+# embedding_model = "text-embedding-3-small"
+
+[[pod_types]]
+# name = "code-gen"
+# retrieval_top_k = 3
+# embedding_model = "text-embedding-3-large"
+
+[knowledge_base]
+# TODO: Define storage backend and embedding configuration
+# storage = "in-memory" # or "sqlite", "pgvector"
+# embedding_provider = "ollama"
+# embedding_model = "nomic-embed-text"
+
+[lineage]
+# TODO: Track upstream parent for fork model
+# upstream_remote = "https://github.com/rykunk21/hive.git"
+# parent_commit = "a7ee51e"
+# branch = "main"
+
+[self_modification]
+# TODO: Define self-modification behavior
+# auto_apply = false
+# validation_required = true
+# max_diff_size_lines = 100

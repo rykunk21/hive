@@ -71,9 +71,12 @@ impl Pod for SpeakerPod {
         &mut self,
         task: Task,
     ) -> anyhow::Result<TaskResult> {
-        // Extract the text payload and run the rig loop
         let response = self.chat(&task.text);
-        // TODO: Package response into TaskResult with knowledge contributions
-        todo!("return TaskResult with response text: {}", response)
+        // Route reply back to the same channel if one was provided
+        let result = match task.channel {
+            Some(channel) => TaskResult::reply(response, channel),
+            None => TaskResult::text(response),
+        };
+        Ok(result)
     }
 }

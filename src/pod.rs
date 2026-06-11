@@ -177,12 +177,25 @@ impl<P: Pod> Actor for PodActor<P> {
 pub struct Task {
     /// Text payload for the task (e.g., user message for a speaker pod).
     pub text: String,
+    /// Optional channel/source identifier for routing responses back.
+    pub channel: Option<String>,
 }
 
 impl Task {
     /// Create a simple text task.
     pub fn text(input: impl Into<String>) -> Self {
-        Task { text: input.into() }
+        Task {
+            text: input.into(),
+            channel: None,
+        }
+    }
+
+    /// Create a task tied to a specific channel (e.g., Discord channel ID).
+    pub fn chat(input: impl Into<String>, channel: impl Into<String>) -> Self {
+        Task {
+            text: input.into(),
+            channel: Some(channel.into()),
+        }
     }
 }
 
@@ -268,9 +281,31 @@ impl<P: Pod> Handler<QueryStatus> for PodActor<P> {
 /// Result of processing a [`Task`].
 ///
 /// Returned by `Pod::handle_task` and propagated back to the hive.
-///
-/// TODO: Include outputs, knowledge contributions, and metrics.
-pub struct TaskResult;
+/// If the task included a `channel`, the hive routes the response there.
+pub struct TaskResult {
+    /// Response text from the pod (e.g., chat reply).
+    pub response: String,
+    /// If set, hive should send this response back to the given channel.
+    pub reply_to: Option<String>,
+}
+
+impl TaskResult {
+    /// Create a simple text result with no routing.
+    pub fn text(response: impl Into<String>) -> Self {
+        TaskResult {
+            response: response.into(),
+            reply_to: None,
+        }
+    }
+
+    /// Create a result that routes back to a specific channel.
+    pub fn reply(response: impl Into<String>, channel: impl Into<String>) -> Self {
+        TaskResult {
+            response: response.into(),
+            reply_to: Some(channel.into()),
+        }
+    }
+}
 
 /// Snapshot of a pod's current status.
 ///

@@ -140,14 +140,8 @@ impl<P: Pod> PodActor<P> {
     }
 
     /// Start this actor and return its address.
-    ///
-    /// The hive calls this when spawning a new pod. The returned [`Addr`]
-    /// is used for all subsequent communication.
-    ///
-    /// TODO: Start the actor on the default arbiter, register with hive.
-    pub fn start_for(_pod: P) -> Addr<Self> {
-        // TODO: construct PodActor, start on actix arbiter, return Addr
-        todo!("construct PodActor, start on actix arbiter, return Addr")
+    pub fn start_for(pod: P) -> Addr<Self> {
+        PodActor::new(pod).start()
     }
 }
 
@@ -156,21 +150,17 @@ impl<P: Pod> Actor for PodActor<P> {
     type Context = Context<Self>;
 
     /// Called when the actor starts.
-    ///
-    /// Delegates to `Pod::init`. If initialization fails, the actor stops.
-    ///
-    /// TODO: Call pod.init(), handle errors, register with hive.
-    fn started(&mut self, _ctx: &mut Self::Context) {
-        todo!("delegate to pod.init(), stop actor on failure")
+    fn started(&mut self, ctx: &mut Self::Context) {
+        if let Err(e) = self.pod.init() {
+            log::error!("pod init failed: {}", e);
+            ctx.stop();
+        }
     }
 
     /// Called when the actor is stopping.
-    ///
-    /// Delegates to `Pod::shutdown` so the pod can flush state.
-    ///
-    /// TODO: Call pod.shutdown() before actor terminates.
     fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
-        todo!("delegate to pod.shutdown(), then allow stop")
+        let _ = self.pod.shutdown();
+        Running::Stop
     }
 }
 
@@ -183,11 +173,20 @@ impl<P: Pod> Actor for PodActor<P> {
 /// Sent by the hive to a [`PodActor`]. The actor delegates to
 /// `Pod::handle_task` and returns the result.
 ///
-/// TODO: Define task payload (task_id, input data, context handles).
-pub struct Task;
+/// TODO: Expand payload with task_id, context handles, routing metadata.
+pub struct Task {
+    /// Text payload for the task (e.g., user message for a speaker pod).
+    pub text: String,
+}
+
+impl Task {
+    /// Create a simple text task.
+    pub fn text(input: impl Into<String>) -> Self {
+        Task { text: input.into() }
+    }
+}
 
 impl Message for Task {
-    /// TODO: Define result type (TaskResult with outputs and knowledge entries).
     type Result = anyhow::Result<TaskResult>;
 }
 
@@ -221,32 +220,29 @@ impl Message for QueryStatus {
 // ---------------------------------------------------------------------------
 
 /// Handle [`Task`] messages by delegating to `Pod::handle_task`.
-///
-/// TODO: Extract task payload, call pod.handle_task(), wrap result.
 impl<P: Pod> Handler<Task> for PodActor<P> {
     type Result = anyhow::Result<TaskResult>;
 
     fn handle(
         &mut self,
-        _msg: Task,
+        msg: Task,
         _ctx: &mut Self::Context,
     ) -> Self::Result {
-        todo!("delegate Task to pod.handle_task()")
+        self.pod.handle_task(msg)
     }
 }
 
 /// Handle [`Shutdown`] by delegating to `Pod::shutdown`.
-///
-/// TODO: Call pod.shutdown(), then trigger actor stop.
 impl<P: Pod> Handler<Shutdown> for PodActor<P> {
     type Result = ();
 
     fn handle(
         &mut self,
         _msg: Shutdown,
-        _ctx: &mut Self::Context,
+        ctx: &mut Self::Context,
     ) {
-        todo!("delegate Shutdown to pod.shutdown(), then ctx.stop()")
+        let _ = self.pod.shutdown();
+        ctx.stop();
     }
 }
 

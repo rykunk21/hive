@@ -40,17 +40,11 @@ impl SpeakerPod {
         }
     }
 
-    /// Run the rig loop for a single chat turn.
+    /// Run the rig loop for a single chat turn (blocking, no async yet).
     ///
-    /// Builds the full prompt, calls the LLM, and returns the response text.
-    async fn chat(&self,
-        _input: &str,
-    ) -> anyhow::Result<String> {
-        // TODO:
-        // 1. Build messages: [system prompt, user input]
-        // 2. Call rig LLM completion
-        // 3. Return response text
-        todo!("implement rig chat loop")
+    /// Builds the full prompt and returns it. Actual LLM call pending rig integration.
+    fn chat(&self, input: &str) -> String {
+        format!("[{}] User: {}\nAssistant: ", self.system_prompt, input)
     }
 }
 
@@ -75,13 +69,11 @@ impl Pod for SpeakerPod {
 
     fn handle_task(
         &mut self,
-        _task: Task,
+        task: Task,
     ) -> anyhow::Result<TaskResult> {
-        // TODO:
-        // 1. Extract text payload from task
-        // 2. Call self.chat(input).await
-        // 3. Package response into TaskResult
-        // 4. Optionally emit PodMessage::TextResponse via router
-        todo!("handle chat task: extract input, run rig loop, return response")
+        // Extract the text payload and run the rig loop
+        let response = self.chat(&task.text);
+        // TODO: Package response into TaskResult with knowledge contributions
+        todo!("return TaskResult with response text: {}", response)
     }
 }

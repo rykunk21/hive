@@ -583,6 +583,7 @@ dependencies = [
  "actix",
  "anyhow",
  "crossterm",
+ "log",
  "ratatui",
  "tokio",
 ]

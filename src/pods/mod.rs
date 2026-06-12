@@ -14,6 +14,7 @@
 //!
 //! - [`speaker::SpeakerPod`] — chat interface via LLM loop
 //!
+#![allow(dead_code)]
 
 use actix::dev::{MessageResponse, OneshotSender};
 use actix::prelude::*;

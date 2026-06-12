@@ -18,7 +18,7 @@ pub enum HiveCommand {
 }
 
 #[derive(Clone, Debug)]
-pub struct ActivityEvent {
+pub struct HiveResponse {
     pub text: String,
 }
 
@@ -29,7 +29,7 @@ pub struct ActivityEvent {
 #[derive(Clone)]
 pub struct ExternalHandle {
     pub cmd_tx: mpsc::Sender<HiveCommand>,
-    pub events_tx: broadcast::Sender<ActivityEvent>, // subscribers call .subscribe()
+    pub events_tx: broadcast::Sender<HiveResponse>, // subscribers call .subscribe()
 }
 
 // ---------------------------------------------------------------------------
@@ -38,13 +38,14 @@ pub struct ExternalHandle {
 
 pub struct InternalHandle {
     pub cmd_rx: mpsc::Receiver<HiveCommand>,
-    pub events_tx: broadcast::Sender<ActivityEvent>,
+    pub events_tx: broadcast::Sender<HiveResponse>,
 }
 
 // ---------------------------------------------------------------------------
 // Hive — lives on main thread, owns the external interface
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 pub struct Hive {
     external: ExternalHandle,
     pods: HashMap<String, ()>,
@@ -54,7 +55,7 @@ pub struct Hive {
 impl Hive {
     pub fn new() -> Self {
         let (cmd_tx, cmd_rx) = mpsc::channel::<HiveCommand>(64);
-        let (events_tx, _events_rx) = broadcast::channel::<ActivityEvent>(64);
+        let (events_tx, _events_rx) = broadcast::channel::<HiveResponse>(64);
 
         let external = ExternalHandle {
             cmd_tx: cmd_tx.clone(),
@@ -81,8 +82,15 @@ impl Hive {
         self.external.cmd_tx.clone()
     }
 
-    pub fn subscribe(&self) -> broadcast::Receiver<ActivityEvent> {
+    pub fn subscribe(&self) -> broadcast::Receiver<HiveResponse> {
         self.external.events_tx.subscribe()
+    }
+}
+
+// Default
+impl Default for Hive {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -113,7 +121,7 @@ async fn hive_loop(internal: InternalHandle) {
                         Ok(PingResponses::GotPong) => format!("{}: GotPong", label),
                         Err(e) => format!("{} error: {}", label, e),
                     };
-                    let _ = events_tx.send(ActivityEvent { text });
+                    let _ = events_tx.send(HiveResponse { text });
                 }
             }
             Some(HiveCommand::SpawnPod) => {
@@ -123,7 +131,7 @@ async fn hive_loop(internal: InternalHandle) {
                 let res = speak.send(SpeakerMessage::Prompt(text.clone())).await;
                 match res {
                     Ok(SpeakerResponse::Response(r)) => {
-                        let _ = events_tx.send(ActivityEvent { text: r });
+                        let _ = events_tx.send(HiveResponse { text: r });
                     }
                     Err(mailbox_err) => {
                         panic!("Speaker Response Err: {}", mailbox_err)

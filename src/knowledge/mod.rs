@@ -1,16 +1,15 @@
+#![allow(dead_code)]
 //! Knowledge base — shared per-type retrieval storage.
 //!
 //! The knowledge base maintains separate embedding spaces indexed by pod type.
 /// so a planner pod and a code generator pod are not fighting over the same
 /// vector space. Each type has its own retrieval strategy, embedding model,
 /// and indexing pipeline.
-
 /// Central knowledge repository owned by the hive.
 ///
 /// Pods contribute outputs to the knowledge base. Other pods query it
 /// through the hive, which routes each query to the appropriate per-type
 /// retrieval index.
-///
 /// TODO: Implement in-memory storage with pluggable persistent backend.
 pub struct KnowledgeBase {
     // TODO: indices: HashMap<String, Index> — per-pod-type embedding spaces
@@ -23,7 +22,7 @@ impl KnowledgeBase {
     ///
     /// TODO: Accept configuration for storage backend and embedding provider.
     pub fn new() -> Self {
-        KnowledgeBase {}
+        todo!();
     }
 
     /// Register a new pod type's retrieval index.
@@ -32,11 +31,7 @@ impl KnowledgeBase {
     /// embedding space with type-specific configuration.
     ///
     /// TODO: Initialize per-type index with embedding model and strategy.
-    pub fn register_type(
-        &mut self,
-        _pod_type: &str,
-        _config: IndexConfig,
-    ) -> anyhow::Result<()> {
+    pub fn register_type(&mut self, _pod_type: &str, _config: IndexConfig) -> anyhow::Result<()> {
         todo!("create per-type embedding index")
     }
 
@@ -75,11 +70,7 @@ impl KnowledgeBase {
     /// The hive uses this to optimize retrieval strategies over time.
     ///
     /// TODO: Store feedback and use for retrieval strategy tuning.
-    pub fn feedback(
-        &mut self,
-        _entry_id: EntryId,
-        _was_useful: bool,
-    ) -> anyhow::Result<()> {
+    pub fn feedback(&mut self, _entry_id: EntryId, _was_useful: bool) -> anyhow::Result<()> {
         todo!("record retrieval feedback for optimization")
     }
 
@@ -155,10 +146,7 @@ pub trait StorageBackend: Send + Sync {
 pub struct InMemoryStorage;
 
 impl StorageBackend for InMemoryStorage {
-    fn save(
-        &self,
-        _indices: &[(String, Vec<KnowledgeEntry>)],
-    ) -> anyhow::Result<()> {
+    fn save(&self, _indices: &[(String, Vec<KnowledgeEntry>)]) -> anyhow::Result<()> {
         todo!("no-op or serialize to file for dev")
     }
 

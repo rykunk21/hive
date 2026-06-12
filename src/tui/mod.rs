@@ -6,7 +6,7 @@
 mod input;
 mod ui;
 
-use crate::hive::{self, ActivityEvent, HiveCommand};
+use crate::hive::{self, HiveCommand, HiveResponse};
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::{Terminal, prelude::CrosstermBackend};
 use std::io;
@@ -40,11 +40,11 @@ impl Tui {
 use tokio::sync::broadcast::error::TryRecvError;
 pub fn run(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    hive: &hive::Hive, // &mut not needed
+    hive: &hive::Hive,
 ) -> anyhow::Result<()> {
     let mut tui = Tui::new();
     let tx = hive.sender();
-    let mut rx = hive.subscribe(); // Get event receiver
+    let mut rx = hive.subscribe();
     let mut activity = vec![];
 
     loop {
@@ -75,8 +75,9 @@ pub fn run(
                 match action {
                     HiveCommand::Submit(_) => {
                         let text = tui.bar_input.drain(..).collect::<String>();
-                        // display a copy of the text?
-                        activity.push(ActivityEvent { text: text.clone() });
+
+                        // display a copy of the input
+                        activity.push(HiveResponse { text: text.clone() });
                         let _ = tx.try_send(HiveCommand::Submit(text));
                     }
 

@@ -65,8 +65,7 @@ impl MessageRouter {
     /// the hive. The sender is cheaply cloneable.
     ///
     /// TODO: Return cloned sender.
-    pub fn sender(&self,
-    ) -> mpsc::Sender<PodMessage> {
+    pub fn sender(&self) -> mpsc::Sender<PodMessage> {
         todo!("clone and return the router's sender handle")
     }
 
@@ -76,9 +75,7 @@ impl MessageRouter {
     /// channel is closed (all senders dropped).
     ///
     /// TODO: Return next PodMessage or None if channel closed.
-    pub async fn recv(
-        &mut self,
-    ) -> Option<PodMessage> {
+    pub async fn recv(&mut self) -> Option<PodMessage> {
         todo!("await next message from the receiver")
     }
 
@@ -87,13 +84,16 @@ impl MessageRouter {
     /// Used by the TUI tick to check for pending messages without blocking.
     ///
     /// TODO: Return next PodMessage or None if empty.
-    pub fn try_recv(
-        &mut self,
-    ) -> Option<PodMessage> {
+    pub fn try_recv(&mut self) -> Option<PodMessage> {
         todo!("non-blocking poll of the receiver")
     }
 }
 
+impl Default for MessageRouter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 /// Configuration for backpressure behavior.
 ///
 /// TODO: Define queue capacity limits, timeout, and overflow strategy.

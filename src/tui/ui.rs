@@ -9,9 +9,9 @@ use ratatui::{
 };
 
 use crate::tui::TuiState;
-use crate::{hive::ActivityEvent, tui::Tui};
+use crate::{hive::HiveResponse, tui::Tui};
 
-pub fn draw(f: &mut Frame, tui: &Tui, activity: &Vec<ActivityEvent>) {
+pub fn draw(f: &mut Frame, tui: &Tui, activity: &[HiveResponse]) {
     let area = f.area();
 
     let rows = Layout::default()
@@ -202,7 +202,7 @@ fn draw_input_bar(f: &mut Frame, area: Rect, input: &str) {
     f.render_widget(paragraph, area);
 }
 
-fn draw_activity_log(f: &mut Frame, area: Rect, activity: &Vec<ActivityEvent>) {
+fn draw_activity_log(f: &mut Frame, area: Rect, activity: &[HiveResponse]) {
     let items: Vec<ListItem> = activity
         .iter()
         .rev()
@@ -210,4 +210,3 @@ fn draw_activity_log(f: &mut Frame, area: Rect, activity: &Vec<ActivityEvent>) {
         .collect();
     f.render_widget(List::new(items).block(border("activity")), area);
 }
-

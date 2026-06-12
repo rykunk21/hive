@@ -20,9 +20,9 @@
 //! 3. Call LLM via rig Ollama provider
 //! 4. Send [`TaskResult`] back to hive
 
-use crate::pod::{Pod, PodType, Task, TaskResult};
+use crate::pod::{Pod, PodType, Task, TaskResult, TaskFuture};
 use rig_core::{
-    client::{CompletionClient, ProviderClient},
+    client::CompletionClient,
     completion::Prompt,
     providers::ollama,
 };
@@ -99,19 +99,16 @@ impl Pod for SpeakerPod {
     fn handle_task(
         &mut self,
         task: Task,
-    ) -> anyhow::Result<TaskResult> {
-        // Note: handle_task is sync, but chat() is async.
-        // TODO: Spawn chat on tokio runtime and block_on, or make handle_task async.
-        // For now, return a placeholder — real async wiring needs Pod trait change.
-        let response = format!(
-            "[Speaker: {}] Would reply to: {}",
-            self.model, task.text
-        );
-
-        let result = match task.channel {
-            Some(channel) => TaskResult::reply(response, channel),
-            None => TaskResult::text(response),
+    ) -> TaskFuture {
+        let response = match task.channel {
+            Some(channel) => TaskResult::reply(
+                format!("[Speaker: {}] Would reply to: {}", self.model, task.text),
+                channel,
+            ),
+            None => TaskResult::text(
+                format!("[Speaker: {}] Would reply to: {}", self.model, task.text),
+            ),
         };
-        Ok(result)
+        Box::pin(async move { Ok(response) })
     }
 }

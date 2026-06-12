@@ -15,7 +15,11 @@
 //! - [`PodActor`] — wraps a Pod and implements actix::Actor
 
 use actix::prelude::*;
+use std::pin::Pin;
 use std::marker::Unpin;
+
+/// A boxed future returned by pod task handlers.
+pub type TaskFuture = Pin<Box<dyn std::future::Future<Output = anyhow::Result<TaskResult>> + Send>>;
 
 // ---------------------------------------------------------------------------
 // Pod trait — consumer-facing interface
@@ -70,13 +74,15 @@ pub trait Pod: Send + Unpin + 'static {
     /// Process a single task.
     ///
     /// This is the core work method. The actor calls it for every [`Task`]
-    /// message received. The pod should perform its domain logic and return
-    /// a [`TaskResult`] containing outputs and any knowledge contributions.
+    /// message received. The pod performs its domain logic (which may include
+    /// async LLM calls) and returns a [`TaskResult`] containing outputs.
     ///
-    /// TODO: Define Task and TaskResult types.
-    fn handle_task(&mut self, _task: Task) -> anyhow::Result<TaskResult> {
-        todo!("process task and return results")
-    }
+    /// This method returns a boxed future so pods can `.await` LLM completions,
+    /// I/O, or other async operations without blocking the actor thread.
+    fn handle_task(
+        &mut self,
+        _task: Task,
+    ) -> TaskFuture;
 
     /// Shut down the pod cleanly.
     ///
@@ -233,15 +239,21 @@ impl Message for QueryStatus {
 // ---------------------------------------------------------------------------
 
 /// Handle [`Task`] messages by delegating to `Pod::handle_task`.
+///
+/// The handler is async — it calls `pod.handle_task().await` so the pod
+/// can perform async LLM completions without blocking the actor thread.
 impl<P: Pod> Handler<Task> for PodActor<P> {
-    type Result = anyhow::Result<TaskResult>;
+    type Result = ResponseActFuture<Self, anyhow::Result<TaskResult>>;
 
     fn handle(
         &mut self,
         msg: Task,
         _ctx: &mut Self::Context,
     ) -> Self::Result {
-        self.pod.handle_task(msg)
+        let fut = self.pod.handle_task(msg);
+        Box::pin(async move {
+            fut.await
+        }.into_actor(self))
     }
 }
 

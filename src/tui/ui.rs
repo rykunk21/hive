@@ -8,35 +8,35 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 
-use crate::tui::Tui;
-use crate::{hive::Hive, tui::TuiState};
+use crate::tui::TuiState;
+use crate::{hive::ActivityEvent, tui::Tui};
 
-pub fn draw(f: &mut Frame, hive: &Hive, tui: &Tui) {
+pub fn draw(f: &mut Frame, tui: &Tui, activity: &Vec<ActivityEvent>) {
     let area = f.area();
 
-    // Split vertically: main content (top) | input bar (bottom, fixed height)
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(3)])
+        .constraints([
+            Constraint::Min(0),         // main panels
+            Constraint::Percentage(30), // activity log
+            Constraint::Length(3),      // input bar
+        ])
         .split(area);
 
-    // Split main content horizontally: agent status (left) | hive graph (right)
     let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(rows[0]);
 
-    draw_agent_status(f, columns[0], hive);
-    draw_hive_graph(f, columns[1], hive);
-    draw_input_bar(f, rows[1], &tui.bar_input);
+    draw_agent_status(f, columns[0]);
+    draw_hive_graph(f, columns[1]);
+    draw_activity_log(f, rows[1], activity);
+    draw_input_bar(f, rows[2], &tui.bar_input);
 
-    match tui.state {
-        //spawn
-        TuiState::Spawn => draw_spawn_overlay(f, f.area()),
-        _ => {}
+    if let TuiState::Spawn = tui.state {
+        draw_spawn_overlay(f, f.area());
     }
 }
-
 fn draw_spawn_overlay(f: &mut Frame, area: Rect) {
     // Center a box over the full terminal area
     let popup = centered_rect(50, 40, area);
@@ -87,7 +87,7 @@ fn border(title: &str) -> Block<'_> {
 /// Left panel: one row per agent with status indicator and metadata.
 ///
 /// TODO: Query hive.agents() for real agent snapshots.
-fn draw_agent_status(f: &mut Frame, area: Rect, _hive: &Hive) {
+fn draw_agent_status(f: &mut Frame, area: Rect) {
     // Each agent gets: status dot | name | current task (dimmed)
     let items: Vec<ListItem> = vec![
         agent_item("planner-0", "routing goal", AgentState::Running),
@@ -125,7 +125,7 @@ fn agent_item(name: &str, task: &str, state: AgentState) -> ListItem<'static> {
 /// Coordinates are in a logical [0, 100] space — Canvas scales to fit.
 ///
 /// TODO: Derive positions and edges from hive.topology().
-fn draw_hive_graph(f: &mut Frame, area: Rect, _hive: &Hive) {
+fn draw_hive_graph(f: &mut Frame, area: Rect) {
     // Hardcoded node positions in logical [0,100] space.
     let nodes: &[(&str, f64, f64, Color)] = &[
         ("planner-0", 50.0, 75.0, Color::Green),
@@ -201,3 +201,13 @@ fn draw_input_bar(f: &mut Frame, area: Rect, input: &str) {
 
     f.render_widget(paragraph, area);
 }
+
+fn draw_activity_log(f: &mut Frame, area: Rect, activity: &Vec<ActivityEvent>) {
+    let items: Vec<ListItem> = activity
+        .iter()
+        .rev()
+        .map(|e| ListItem::new(e.text.as_str()))
+        .collect();
+    f.render_widget(List::new(items).block(border("activity")), area);
+}
+

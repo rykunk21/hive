@@ -3,13 +3,11 @@
 //! Provides a real-time view of the pod registry, active pods, activity log,
 //! and a control surface for manual hive operations.
 
-mod actions;
 mod input;
 mod ui;
 
-use crate::hive;
-use actions::Action;
-use crossterm::event::{self, Event, KeyCode};
+use crate::hive::{self, HiveCommand};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::{Terminal, prelude::CrosstermBackend};
 use std::io;
 
@@ -38,26 +36,67 @@ impl Tui {
 ///
 /// Draws the UI at ~60 FPS (16ms frame budget), polls for keyboard input,
 /// and dispatches actions to the hive. Returns when the user quits.
+///
+use tokio::sync::broadcast::error::TryRecvError;
 pub fn run(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    hive: &mut hive::Hive,
+    hive: &hive::Hive, // &mut not needed
 ) -> anyhow::Result<()> {
     let mut tui = Tui::new();
+    let tx = hive.sender();
+    let mut rx = hive.subscribe(); // Get event receiver
+    let mut activity = vec![];
+
     loop {
-        terminal.draw(|f| ui::draw(f, hive, &tui))?;
+        // --- DRAIN EVENTS FROM HIVE ---
+        // Non-blocking: collect all pending activity events
+
+        // In your event drain loop:
+        loop {
+            match rx.try_recv() {
+                Ok(event) => activity.push(event),
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Closed) => return Ok(()),
+                Err(TryRecvError::Lagged(n)) => {
+                    eprintln!("Lagged behind by {} events", n);
+                    break;
+                }
+            }
+        }
+
+        // --- DRAW ---
+        terminal.draw(|f| ui::draw(f, &tui, &activity))?;
+
+        // --- HANDLE INPUT ---
         if event::poll(std::time::Duration::from_millis(16))?
             && let Event::Key(key) = event::read()?
         {
             if let Some(action) = input::handle_key(key) {
+                // todo! Reset handle key to return tui action types
                 match action {
-                    Action::Quit => return Ok(()),
-                    Action::Submit => return Ok(()),
-                    Action::SpawnPod => tui.state = TuiState::Spawn,
+                    HiveCommand::Submit(_) => {
+                        let text = tui.bar_input.drain(..).collect::<String>();
+                        let _ = tx.try_send(HiveCommand::Submit(text));
+                    }
+
+                    HiveCommand::SpawnPod => {
+                        tui.state = match tui.state {
+                            TuiState::Spawn => TuiState::Home,
+                            _ => TuiState::Spawn,
+                        }
+                    }
+                    HiveCommand::Ping => {
+                        let _ = tx.try_send(HiveCommand::Ping);
+                    }
                 }
             } else {
-                match key.code {
-                    KeyCode::Char(c) => tui.bar_input.push(c),
-                    KeyCode::Backspace => {
+                match (key.code, key.modifiers) {
+                    // Quit
+                    (KeyCode::Char('q'), _) => return Ok(()),
+                    (KeyCode::Char('c'), KeyModifiers::CONTROL) => return Ok(()),
+
+                    (KeyCode::Char(c), _) => tui.bar_input.push(c),
+                    (KeyCode::Backspace, _) => {
                         tui.bar_input.pop();
                     }
                     _ => {}

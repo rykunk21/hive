@@ -3,27 +3,32 @@
 //! Spawns a SpeakerPod via PodActor, sends a Task, and verifies the
 //! TaskResult comes back through the actix mailbox.
 
-use hive::pod::{PodActor, Task, TaskResult};
+use hive::pod::{PodActor, Task};
 use hive::pods::speaker::SpeakerPod;
 use actix::Actor;
 
 #[actix::test]
-async fn test_speaker_pod_echos_task() {
+async fn test_speaker_pod_calls_llm() {
     // 1. Start the pod actor
     let addr = PodActor::start_for(SpeakerPod::new());
 
-    // 2. Send a text task (no channel routing)
-    let result = addr.send(Task::text("hello from test")).await.unwrap();
+    // 2. Send a text task with a short prompt
+    let result = addr.send(Task::text("hi")).await;
 
-    // 3. Verify we got a result back
-    assert!(result.is_ok(), "handle_task should succeed");
-    let task_result = result.unwrap();
+    // 3. Verify the message was delivered and processed
+    assert!(result.is_ok(), "message should be delivered to actor");
+    let inner = result.unwrap();
+    assert!(inner.is_ok(), "LLM call should succeed: {:?}", inner.err());
 
-    // 4. Verify the response contains our input
+    let task_result = inner.unwrap();
+
+    // 4. Verify we got a non-empty response from the LLM
     assert!(
-        task_result.response.contains("hello from test"),
-        "response should echo the input text"
+        !task_result.response.is_empty(),
+        "LLM should return a response, got: '{}'",
+        task_result.response
     );
+    println!("LLM response: {}", task_result.response);
 }
 
 #[actix::test]

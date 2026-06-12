@@ -5,7 +5,7 @@
 //!
 //! ## Bundle Layout
 //!
-//! ```
+//! ```text
 //! speaker/
 //! ├── mod.rs          # Pod trait impl + rig loop
 //! ├── prompts/

@@ -14,15 +14,34 @@
 //!
 //! - [`speaker::SpeakerPod`] — chat interface via LLM loop
 //!
-//! # Example
-//!
-//! ```rust,ignore
-//! use hive::pods::SpeakerPod;
-//! use hive::pod::{Pod, PodRegistry};
-//!
-//! let mut registry = PodRegistry::new();
-//! registry.register("speaker", Box::new(|| Box::new(SpeakerPod::default())));
-//! ```
+
+use actix::dev::{MessageResponse, OneshotSender};
+use actix::prelude::*;
+
+/// Type of message that ping can recieve
+#[derive(Message)]
+#[rtype(result = "PodResponse")]
+pub enum PodMessage {
+    Text(String),
+}
+
+/// Type of messages that ping can return
+pub enum PodResponse {
+    Ok,
+    Err,
+}
+
+impl<A, M> MessageResponse<A, M> for PodResponse
+where
+    A: Actor,
+    M: Message<Result = PodResponse>,
+{
+    fn handle(self, _ctx: &mut A::Context, tx: Option<OneshotSender<M::Result>>) {
+        if let Some(tx) = tx {
+            let _ = tx.send(self);
+        }
+    }
+}
 
 pub mod ping;
 pub mod speaker;

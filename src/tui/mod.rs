@@ -6,7 +6,7 @@
 mod input;
 mod ui;
 
-use crate::hive::{self, HiveCommand};
+use crate::hive::{self, ActivityEvent, HiveCommand};
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::{Terminal, prelude::CrosstermBackend};
 use std::io;
@@ -72,10 +72,11 @@ pub fn run(
             && let Event::Key(key) = event::read()?
         {
             if let Some(action) = input::handle_key(key) {
-                // todo! Reset handle key to return tui action types
                 match action {
                     HiveCommand::Submit(_) => {
                         let text = tui.bar_input.drain(..).collect::<String>();
+                        // display a copy of the text?
+                        activity.push(ActivityEvent { text: text.clone() });
                         let _ = tx.try_send(HiveCommand::Submit(text));
                     }
 

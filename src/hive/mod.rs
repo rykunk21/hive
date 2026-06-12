@@ -1,5 +1,8 @@
 //! Hive core runtimeuse std::collections::HashMap;
-use crate::pods::ping::{Ping, PingMessages, PingResponses};
+use crate::pods::{
+    ping::{Ping, PingMessages, PingResponses},
+    speaker::{Speaker, SpeakerMessage, SpeakerResponse},
+};
 use actix::prelude::*;
 use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc};
@@ -92,14 +95,15 @@ async fn hive_loop(internal: InternalHandle) {
     let events_tx = internal.events_tx;
 
     // Start your actor(s) inside the actix system
-    let addr = Ping.start();
+    let ping = Ping.start();
+    let speak = Speaker::new().start();
 
     loop {
         // Receive command from Hive
         match cmd_rx.recv().await {
             Some(HiveCommand::Ping) => {
-                let ping_fut = addr.send(PingMessages::Ping);
-                let pong_fut = addr.send(PingMessages::Pong);
+                let ping_fut = ping.send(PingMessages::Ping);
+                let pong_fut = ping.send(PingMessages::Pong);
 
                 let (ping_res, pong_res) = futures::join!(ping_fut, pong_fut);
 
@@ -116,7 +120,15 @@ async fn hive_loop(internal: InternalHandle) {
                 // Handle spawn...
             }
             Some(HiveCommand::Submit(text)) => {
-                let _ = events_tx.send(ActivityEvent { text });
+                let res = speak.send(SpeakerMessage::Prompt(text.clone())).await;
+                match res {
+                    Ok(SpeakerResponse::Response(r)) => {
+                        let _ = events_tx.send(ActivityEvent { text: r });
+                    }
+                    Err(mailbox_err) => {
+                        panic!("Speaker Response Err: {}", mailbox_err)
+                    }
+                }
             }
             None => {
                 // All senders dropped, channel closed — shut down
@@ -125,4 +137,3 @@ async fn hive_loop(internal: InternalHandle) {
         }
     }
 }
-

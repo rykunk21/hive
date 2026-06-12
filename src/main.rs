@@ -1,3 +1,7 @@
+//! Hive TUI entry point.
+//!
+//! Boots the terminal UI, initializes the Hive runtime, and runs the main loop.
+
 use std::io;
 
 use anyhow::Result;
@@ -7,7 +11,10 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 
+mod config;
 mod hive;
+mod pod;
+mod pods;
 mod tui;
 
 fn main() -> Result<()> {
@@ -18,6 +25,9 @@ fn main() -> Result<()> {
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
     let mut hive = hive::Hive::new();
+
+    // TODO: Register built-in pod types with hive.registry
+    // hive.registry.register("speaker", Box::new(|| Box::new(pods::speaker::SpeakerPod::default())));
 
     let result = tui::run(&mut terminal, &mut hive);
 

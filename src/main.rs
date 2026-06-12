@@ -29,9 +29,6 @@ fn main() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
     let hive = hive::Hive::new();
 
-    // TODO: Register built-in pod types with hive.registry
-    // hive.registry.register("speaker", Box::new(|| Box::new(pods::speaker::SpeakerPod::default())));
-
     let result = tui::run(&mut terminal, &hive);
 
     disable_raw_mode()?;

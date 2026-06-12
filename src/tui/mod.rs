@@ -6,30 +6,28 @@
 mod input;
 mod ui;
 
-use crate::hive::{self, HiveCommand, HiveResponse};
+use crate::{
+    hive::{self, HiveCommand, HiveResponse},
+    tui::ui::TuiView,
+};
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::{Terminal, prelude::CrosstermBackend};
 use std::io;
 
 /// All the possible states the tui can be in
+#[derive(Default)]
 enum TuiState {
+    #[default]
     Home,
     Spawn,
 }
 
 /// House for all the Tui specific data. Should be private, only needed by run
+#[derive(Default)]
 struct Tui {
     state: TuiState,
     bar_input: String,
-}
-
-impl Tui {
-    fn new() -> Self {
-        Tui {
-            state: TuiState::Home,
-            bar_input: String::new(),
-        }
-    }
+    view: TuiView,
 }
 
 /// Run the TUI event loop.
@@ -42,7 +40,7 @@ pub fn run(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     hive: &hive::Hive,
 ) -> anyhow::Result<()> {
-    let mut tui = Tui::new();
+    let mut tui = Tui::default();
     let tx = hive.sender();
     let mut rx = hive.subscribe();
     let mut activity = vec![];
@@ -65,7 +63,7 @@ pub fn run(
         }
 
         // --- DRAW ---
-        terminal.draw(|f| ui::draw(f, &tui, &activity))?;
+        terminal.draw(|f| ui::draw(f, &tui))?;
 
         // --- HANDLE INPUT ---
         if event::poll(std::time::Duration::from_millis(16))?

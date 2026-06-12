@@ -18,13 +18,6 @@ pub struct KnowledgeBase {
 }
 
 impl KnowledgeBase {
-    /// Create a new empty knowledge base.
-    ///
-    /// TODO: Accept configuration for storage backend and embedding provider.
-    pub fn new() -> Self {
-        todo!();
-    }
-
     /// Register a new pod type's retrieval index.
     ///
     /// Called when the hive registers a pod type. Creates a dedicated

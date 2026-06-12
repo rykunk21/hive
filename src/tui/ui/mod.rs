@@ -1,4 +1,5 @@
 //! TUI rendering — draws the hive dashboard.
+mod agents;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -10,8 +11,15 @@ use ratatui::{
 
 use crate::tui::TuiState;
 use crate::{hive::HiveResponse, tui::Tui};
+use agents::AgentView;
 
-pub fn draw(f: &mut Frame, tui: &Tui, activity: &[HiveResponse]) {
+#[derive(Default)]
+pub struct TuiView {
+    activities: Vec<HiveResponse>,
+    agents: Vec<AgentView>,
+}
+
+pub fn draw(f: &mut Frame, tui: &Tui) {
     let area = f.area();
 
     let rows = Layout::default()
@@ -29,8 +37,8 @@ pub fn draw(f: &mut Frame, tui: &Tui, activity: &[HiveResponse]) {
         .split(rows[0]);
 
     draw_agent_status(f, columns[0]);
-    draw_hive_graph(f, columns[1]);
-    draw_activity_log(f, rows[1], activity);
+    draw_hive_world(f, columns[1]);
+    draw_activity_log(f, rows[1], &tui.view.activities);
     draw_input_bar(f, rows[2], &tui.bar_input);
 
     if let TuiState::Spawn = tui.state {
@@ -125,7 +133,7 @@ fn agent_item(name: &str, task: &str, state: AgentState) -> ListItem<'static> {
 /// Coordinates are in a logical [0, 100] space — Canvas scales to fit.
 ///
 /// TODO: Derive positions and edges from hive.topology().
-fn draw_hive_graph(f: &mut Frame, area: Rect) {
+fn draw_hive_world(f: &mut Frame, area: Rect) {
     // Hardcoded node positions in logical [0,100] space.
     let nodes: &[(&str, f64, f64, Color)] = &[
         ("planner-0", 50.0, 75.0, Color::Green),

@@ -4,7 +4,6 @@ use crate::pods::{
     speaker::{Speaker, SpeakerMessage, SpeakerResponse},
 };
 use actix::prelude::*;
-use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc};
 
 // ---------------------------------------------------------------------------
@@ -14,7 +13,7 @@ use tokio::sync::{broadcast, mpsc};
 pub enum HiveCommand {
     Ping,
     Submit(String),
-    SpawnPod, // Add more later:, KillPod, etc.
+    SpawnPod,
 }
 
 #[derive(Clone, Debug)]
@@ -45,11 +44,8 @@ pub struct InternalHandle {
 // Hive — lives on main thread, owns the external interface
 // ---------------------------------------------------------------------------
 
-#[allow(dead_code)]
 pub struct Hive {
     external: ExternalHandle,
-    pods: HashMap<String, ()>,
-    catalog: HashMap<&'static str, ()>,
 }
 
 impl Hive {
@@ -71,11 +67,7 @@ impl Hive {
             actix::System::new().block_on(hive_loop(internal));
         });
 
-        Hive {
-            external,
-            pods: HashMap::new(),
-            catalog: HashMap::new(),
-        }
+        Hive { external }
     }
 
     pub fn sender(&self) -> mpsc::Sender<HiveCommand> {

@@ -24,4 +24,5 @@
 //! registry.register("speaker", Box::new(|| Box::new(SpeakerPod::default())));
 //! ```
 
+pub mod ping;
 pub mod speaker;

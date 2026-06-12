@@ -8,9 +8,10 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 
-use crate::tui::Tui;
-use crate::{hive::Hive, tui::TuiState};
-pub fn draw(f: &mut Frame, tui: &Tui, activity: &[String]) {
+use crate::tui::TuiState;
+use crate::{hive::ActivityEvent, tui::Tui};
+
+pub fn draw(f: &mut Frame, tui: &Tui, activity: &Vec<ActivityEvent>) {
     let area = f.area();
 
     let rows = Layout::default()
@@ -32,9 +33,8 @@ pub fn draw(f: &mut Frame, tui: &Tui, activity: &[String]) {
     draw_activity_log(f, rows[1], activity);
     draw_input_bar(f, rows[2], &tui.bar_input);
 
-    match tui.state {
-        TuiState::Spawn => draw_spawn_overlay(f, f.area()),
-        _ => {}
+    if let TuiState::Spawn = tui.state {
+        draw_spawn_overlay(f, f.area());
     }
 }
 fn draw_spawn_overlay(f: &mut Frame, area: Rect) {
@@ -202,13 +202,12 @@ fn draw_input_bar(f: &mut Frame, area: Rect, input: &str) {
     f.render_widget(paragraph, area);
 }
 
-fn draw_activity_log(f: &mut Frame, area: Rect, activity: &[String]) {
+fn draw_activity_log(f: &mut Frame, area: Rect, activity: &Vec<ActivityEvent>) {
     let items: Vec<ListItem> = activity
         .iter()
-        .rev() // newest at top
-        .map(|e| ListItem::new(Line::from(Span::raw(e.clone()))))
+        .rev()
+        .map(|e| ListItem::new(e.text.as_str()))
         .collect();
-
     f.render_widget(List::new(items).block(border("activity")), area);
 }
 

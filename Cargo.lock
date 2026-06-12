@@ -1018,6 +1018,7 @@ dependencies = [
  "anyhow",
  "crossterm",
  "env_logger",
+ "futures",
  "log",
  "ratatui",
  "rig-core",

@@ -1,125 +1,128 @@
-//! Hive core runtime.
-
-use crate::pod::PodActor;
-use crate::pod::{Task, TaskResult};
-use crate::pods::speaker::SpeakerPod;
+//! Hive core runtimeuse std::collections::HashMap;
+use crate::pods::ping::{Ping, PingMessages, PingResponses};
 use actix::prelude::*;
-use std::sync::mpsc;
-use std::thread;
+use std::collections::HashMap;
+use tokio::sync::{broadcast, mpsc};
 
 // ---------------------------------------------------------------------------
-// Activity events — what the TUI reads back
+// Messages
 // ---------------------------------------------------------------------------
+#[derive(Clone, Debug)]
+pub enum HiveCommand {
+    Ping,
+    Submit(String),
+    SpawnPod, // Add more later:, KillPod, etc.
+}
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct ActivityEvent {
     pub text: String,
 }
 
 // ---------------------------------------------------------------------------
-// Internal command — what the shell sends to the inner loop
+// External interface — cloned and handed to subscribers (TUI, Discord, HTTP)
 // ---------------------------------------------------------------------------
 
-enum HiveCommand {
-    Submit(String),
+#[derive(Clone)]
+pub struct ExternalHandle {
+    pub cmd_tx: mpsc::Sender<HiveCommand>,
+    pub events_tx: broadcast::Sender<ActivityEvent>, // subscribers call .subscribe()
 }
 
 // ---------------------------------------------------------------------------
-// Hive shell — lives on the main thread, owned by the TUI
+// Internal interface — moved into the actix thread
+// ---------------------------------------------------------------------------
+
+pub struct InternalHandle {
+    pub cmd_rx: mpsc::Receiver<HiveCommand>,
+    pub events_tx: broadcast::Sender<ActivityEvent>,
+}
+
+// ---------------------------------------------------------------------------
+// Hive — lives on main thread, owns the external interface
 // ---------------------------------------------------------------------------
 
 pub struct Hive {
-    tx_cmd: mpsc::Sender<HiveCommand>,
-    rx_events: mpsc::Receiver<ActivityEvent>,
+    external: ExternalHandle,
+    pods: HashMap<String, ()>,
+    catalog: HashMap<&'static str, ()>,
 }
 
 impl Hive {
     pub fn new() -> Self {
-        let (tx_cmd, rx_cmd) = mpsc::channel::<HiveCommand>();
-        let (tx_events, rx_events) = mpsc::channel::<ActivityEvent>();
+        let (cmd_tx, cmd_rx) = mpsc::channel::<HiveCommand>(64);
+        let (events_tx, _events_rx) = broadcast::channel::<ActivityEvent>(64);
 
-        // Spin up actix on its own thread
-        thread::spawn(move || {
-            actix::System::new().block_on(hive_loop(rx_cmd, tx_events));
+        let external = ExternalHandle {
+            cmd_tx: cmd_tx.clone(),
+            events_tx: events_tx.clone(),
+        };
+
+        let internal = InternalHandle {
+            cmd_rx,
+            events_tx: events_tx.clone(),
+        };
+
+        std::thread::spawn(move || {
+            actix::System::new().block_on(hive_loop(internal));
         });
 
-        Hive { tx_cmd, rx_events }
+        Hive {
+            external,
+            pods: HashMap::new(),
+            catalog: HashMap::new(),
+        }
     }
 
-    /// Submit text from the TUI input bar.
-    pub fn submit(&self, text: String) {
-        let _ = self.tx_cmd.send(HiveCommand::Submit(text));
+    pub fn sender(&self) -> mpsc::Sender<HiveCommand> {
+        self.external.cmd_tx.clone()
     }
 
-    /// Drain any new activity events — call each frame from the TUI.
-    pub fn drain_events(&self) -> Vec<ActivityEvent> {
-        self.rx_events.try_iter().collect()
+    pub fn subscribe(&self) -> broadcast::Receiver<ActivityEvent> {
+        self.external.events_tx.subscribe()
     }
 }
 
 // ---------------------------------------------------------------------------
-// Inner async loop — lives on the actix thread
+// Hive event loop — runs inside actix on a background thread
 // ---------------------------------------------------------------------------
 
-async fn hive_loop(rx_cmd: mpsc::Receiver<HiveCommand>, tx_events: mpsc::Sender<ActivityEvent>) {
-    // Spawn the speaker pod actor
-    let addr: Addr<PodActor<SpeakerPod>> = PodActor::start_for(SpeakerPod::new());
+async fn hive_loop(internal: InternalHandle) {
+    let mut cmd_rx = internal.cmd_rx;
+    let events_tx = internal.events_tx;
 
-    tx_events
-        .send(ActivityEvent {
-            text: "hive started".into(),
-        })
-        .ok();
-    tx_events
-        .send(ActivityEvent {
-            text: "speaker pod spawned".into(),
-        })
-        .ok();
+    // Start your actor(s) inside the actix system
+    let addr = Ping.start();
 
     loop {
-        // Poll the command channel — try_recv is non-blocking
-        match rx_cmd.try_recv() {
-            Ok(HiveCommand::Submit(text)) => {
-                tx_events
-                    .send(ActivityEvent {
-                        text: format!("› {}", text),
-                    })
-                    .ok();
+        // Receive command from Hive
+        match cmd_rx.recv().await {
+            Some(HiveCommand::Ping) => {
+                let ping_fut = addr.send(PingMessages::Ping);
+                let pong_fut = addr.send(PingMessages::Pong);
 
-                let task = Task::text(text);
-                let tx = tx_events.clone();
+                let (ping_res, pong_res) = futures::join!(ping_fut, pong_fut);
 
-                // Send to actor — addr.send() returns a future
-                let fut = addr.send(task);
-                actix::spawn(async move {
-                    match fut.await {
-                        Ok(Ok(result)) => {
-                            tx.send(ActivityEvent {
-                                text: format!("◄ {}", result.response),
-                            })
-                            .ok();
-                        }
-                        Ok(Err(e)) => {
-                            tx.send(ActivityEvent {
-                                text: format!("✖ error: {}", e),
-                            })
-                            .ok();
-                        }
-                        Err(e) => {
-                            tx.send(ActivityEvent {
-                                text: format!("✖ mailbox error: {}", e),
-                            })
-                            .ok();
-                        }
-                    }
-                });
+                for (label, res) in [("Ping", ping_res), ("Pong", pong_res)] {
+                    let text = match res {
+                        Ok(PingResponses::GotPing) => format!("{}: GotPing", label),
+                        Ok(PingResponses::GotPong) => format!("{}: GotPong", label),
+                        Err(e) => format!("{} error: {}", label, e),
+                    };
+                    let _ = events_tx.send(ActivityEvent { text });
+                }
             }
-            Err(mpsc::TryRecvError::Disconnected) => break,
-            Err(mpsc::TryRecvError::Empty) => {}
+            Some(HiveCommand::SpawnPod) => {
+                // Handle spawn...
+            }
+            Some(HiveCommand::Submit(text)) => {
+                let _ = events_tx.send(ActivityEvent { text });
+            }
+            None => {
+                // All senders dropped, channel closed — shut down
+                break;
+            }
         }
-
-        // Yield to actix so actor futures can make progress
-        tokio::time::sleep(std::time::Duration::from_millis(16)).await;
     }
 }
 

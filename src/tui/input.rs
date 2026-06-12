@@ -1,8 +1,9 @@
 //! Keyboard input handling — maps keystrokes to TUI actions.
 //!
 //! Supports vim-style navigation and single-key commands for pod lifecycle
+use crate::hive::HiveCommand;
+
 /// management. All real actions are stubbed until hive implements them.
-use super::actions::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Convert a keyboard event into a TUI action.
@@ -10,14 +11,13 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 /// Returns `None` for unbound keys. The TUI event loop ignores unmapped input.
 ///
 /// TODO: Wire navigation and pod lifecycle keys once hive supports the actions.
-pub fn handle_key(key: KeyEvent) -> Option<Action> {
+pub fn handle_key(key: KeyEvent) -> Option<HiveCommand> {
     match (key.code, key.modifiers) {
-        // Quit
-        (KeyCode::Char('q'), _) => Some(Action::Quit),
-        (KeyCode::Char('c'), KeyModifiers::CONTROL) => Some(Action::Quit),
+        // Ping
+        (KeyCode::Char('p'), KeyModifiers::CONTROL) => Some(HiveCommand::Ping),
 
         // Submit input
-        (KeyCode::Enter, _) => Some(Action::Submit),
+        (KeyCode::Enter, _) => Some(HiveCommand::Submit("".into())),
 
         // Navigation — stubbed until UI has focusable panels
         /*
@@ -29,20 +29,9 @@ pub fn handle_key(key: KeyEvent) -> Option<Action> {
         // Pod lifecycle — stubbed until Hive::spawn_pod / Hive::kill_pod exist
         (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
             // TODO: Prompt for pod type, then Some(Action::SpawnPod(type_name))
-            Some(Action::SpawnPod)
+            Some(HiveCommand::SpawnPod)
         }
 
-        /*
-        (KeyCode::Char('x'), _) => {
-            // TODO: Prompt for pod ID, then Some(Action::KillPod(pod_id))
-            None
-        }
-        */
-
-        // Self-modification trigger — stubbed until Hive::evolve exists
-        /*
-        (KeyCode::Char('e'), _) => Some(Action::TriggerEvolve),
-        */
         _ => None,
     }
 }

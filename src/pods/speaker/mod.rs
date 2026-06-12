@@ -25,11 +25,7 @@
 
 use crate::pod::{Pod, PodActor, PodType, Task, TaskResult};
 use actix::prelude::*;
-use rig_core::{
-    client::CompletionClient,
-    completion::Prompt,
-    providers::ollama,
-};
+use rig_core::{client::CompletionClient, completion::Prompt, providers::ollama};
 
 /// Speaker pod — conversational agent using local Ollama.
 ///
@@ -49,7 +45,7 @@ impl SpeakerPod {
         SpeakerPod {
             client: None,
             system_prompt: include_str!("prompts/system.md").to_string(),
-            model: "gemma3:latest".to_string(),
+            model: "qwen2.5:1.5b".to_string(),
         }
     }
 
@@ -60,10 +56,7 @@ impl SpeakerPod {
         system_prompt: String,
         input: String,
     ) -> anyhow::Result<String> {
-        let agent = client
-            .agent(&model)
-            .preamble(&system_prompt)
-            .build();
+        let agent = client.agent(&model).preamble(&system_prompt).build();
         let response = agent.prompt(&input).await?;
         Ok(response)
     }
@@ -81,18 +74,15 @@ impl Pod for SpeakerPod {
             name: "speaker".into(),
         }
     }
-
     fn init(&mut self) -> anyhow::Result<()> {
+        // Connect to local Ollama server (no auth required by default).
+        // Fails fast here so the actor stops if Ollama is not running.
         self.client = Some(ollama::Client::new(rig_core::client::Nothing)?);
         Ok(())
     }
-
-    fn handle_task(
-        &mut self,
-        task: Task,
-    ) -> anyhow::Result<TaskResult> {
+    fn handle_task(&mut self, task: Task) -> anyhow::Result<TaskResult> {
         // Sync placeholder — the real LLM call happens in the custom
-        // Handler<Task> below which has access to async context.
+        // Handlergemma3<Task> below which has access to async context.
         let response = format!("[Speaker placeholder for: {}]", task.text);
         Ok(match task.channel {
             Some(ch) => TaskResult::reply(response, ch),
@@ -109,28 +99,27 @@ impl Pod for SpeakerPod {
 impl Handler<Task> for PodActor<SpeakerPod> {
     type Result = ResponseActFuture<Self, anyhow::Result<TaskResult>>;
 
-    fn handle(
-        &mut self,
-        msg: Task,
-        _ctx: &mut Self::Context,
-    ) -> Self::Result {
+    fn handle(&mut self, msg: Task, _ctx: &mut Self::Context) -> Self::Result {
         let input = msg.text;
         let channel = msg.channel;
         let client = self.pod.client.clone();
         let model = self.pod.model.clone();
         let system_prompt = self.pod.system_prompt.clone();
 
-        Box::pin(async move {
-            let client = match client {
-                Some(c) => c,
-                None => return Err(anyhow::anyhow!("Ollama client not initialized")),
-            };
-            let response = SpeakerPod::chat(client, model, system_prompt, input).await?;
-            let result = match channel {
-                Some(ch) => TaskResult::reply(response, ch),
-                None => TaskResult::text(response),
-            };
-            Ok(result)
-        }.into_actor(self))
+        Box::pin(
+            async move {
+                let client = match client {
+                    Some(c) => c,
+                    None => return Err(anyhow::anyhow!("Ollama client not initialized")),
+                };
+                let response = SpeakerPod::chat(client, model, system_prompt, input).await?;
+                let result = match channel {
+                    Some(ch) => TaskResult::reply(response, ch),
+                    None => TaskResult::text(response),
+                };
+                Ok(result)
+            }
+            .into_actor(self),
+        )
     }
 }

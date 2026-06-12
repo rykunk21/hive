@@ -43,15 +43,26 @@ pub fn run(
     hive: &mut hive::Hive,
 ) -> anyhow::Result<()> {
     let mut tui = Tui::new();
+    let mut activity: Vec<String> = vec![];
+
     loop {
-        terminal.draw(|f| ui::draw(f, hive, &tui))?;
+        // Drain any new events from the hive each frame
+        for event in hive.drain_events() {
+            activity.push(event.text);
+        }
+
+        terminal.draw(|f| ui::draw(f, &tui, &activity))?;
+
         if event::poll(std::time::Duration::from_millis(16))?
             && let Event::Key(key) = event::read()?
         {
             if let Some(action) = input::handle_key(key) {
                 match action {
                     Action::Quit => return Ok(()),
-                    Action::Submit => return Ok(()),
+                    Action::Submit => {
+                        let text = tui.bar_input.drain(..).collect::<String>();
+                        hive.submit(text);
+                    }
                     Action::SpawnPod => tui.state = TuiState::Spawn,
                 }
             } else {

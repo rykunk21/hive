@@ -18,6 +18,11 @@ mod pods;
 mod tui;
 
 fn main() -> Result<()> {
+    env_logger::Builder::new()
+        .target(env_logger::Target::Pipe(Box::new(
+            std::fs::File::create("hive.log").unwrap(),
+        )))
+        .init();
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;

@@ -43,7 +43,11 @@ impl Task {
         }
     }
 
-    /// Create a task tied to a specific channel (e.g., Discord channel ID).
+    /// Create a task tied to a specific channel.
+    ///
+    /// The `channel` is an opaque routing identifier — the hive uses it
+    /// to determine where to send the response. Format depends on the
+    /// transport (e.g., "#room" for IRC, "user-id" for DMs, etc.).
     pub fn chat(input: impl Into<String>, channel: impl Into<String>) -> Self {
         Task {
             text: input.into(),

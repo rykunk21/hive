@@ -49,29 +49,25 @@ impl SpeakerPod {
         SpeakerPod {
             client: None,
             system_prompt: include_str!("prompts/system.md").to_string(),
-            model: "qwen2.5:14b".to_string(),
+            model: "gemma3:latest".to_string(),
         }
     }
 
     /// Run the rig loop for a single chat turn.
     ///
-    /// Builds an agent with the system prompt, calls the LLM, and returns
-    /// the response text.
+    /// Clones the client handle so the returned future is 'static.
     async fn chat(
-        &self,
-        input: &str,
+        client: ollama::Client,
+        model: String,
+        system_prompt: String,
+        input: String,
     ) -> anyhow::Result<String> {
-        let client = self
-            .client
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Ollama client not initialized — call init() first"))?;
-
         let agent = client
-            .agent(&self.model)
-            .preamble(&self.system_prompt)
+            .agent(&model)
+            .preamble(&system_prompt)
             .build();
 
-        let response = agent.prompt(input).await?;
+        let response = agent.prompt(&input).await?;
         Ok(response)
     }
 }
@@ -100,15 +96,30 @@ impl Pod for SpeakerPod {
         &mut self,
         task: Task,
     ) -> TaskFuture {
-        let response = match task.channel {
-            Some(channel) => TaskResult::reply(
-                format!("[Speaker: {}] Would reply to: {}", self.model, task.text),
-                channel,
-            ),
-            None => TaskResult::text(
-                format!("[Speaker: {}] Would reply to: {}", self.model, task.text),
-            ),
+        let input = task.text;
+        let channel = task.channel;
+
+        // Clone the client so the future is 'static
+        let client = match &self.client {
+            Some(c) => c.clone(),
+            None => {
+                return Box::pin(async move {
+                    Err(anyhow::anyhow!("Ollama client not initialized — call init() first"))
+                });
+            }
         };
-        Box::pin(async move { Ok(response) })
+
+        let model = self.model.clone();
+        let system_prompt = self.system_prompt.clone();
+
+        Box::pin(async move {
+            let response = SpeakerPod::chat(client, model, system_prompt, input).await?;
+
+            let result = match channel {
+                Some(ch) => TaskResult::reply(response, ch),
+                None => TaskResult::text(response),
+            };
+            Ok(result)
+        })
     }
 }

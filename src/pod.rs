@@ -19,7 +19,7 @@ use std::pin::Pin;
 use std::marker::Unpin;
 
 /// A boxed future returned by pod task handlers.
-pub type TaskFuture = Pin<Box<dyn std::future::Future<Output = anyhow::Result<TaskResult>> + Send>>;
+pub type TaskFuture = Pin<Box<dyn std::future::Future<Output = anyhow::Result<TaskResult>> + Send + 'static>>;
 
 // ---------------------------------------------------------------------------
 // Pod trait — consumer-facing interface

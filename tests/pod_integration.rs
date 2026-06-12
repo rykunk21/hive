@@ -3,7 +3,7 @@
 //! Spawns a SpeakerPod via PodActor, sends a Task, and verifies the
 //! TaskResult comes back through the actix mailbox.
 
-use hive::pod::{PodActor, Task, TaskResult};
+use hive::pod::{PodActor, Task};
 use hive::pods::speaker::SpeakerPod;
 use actix::Actor;
 

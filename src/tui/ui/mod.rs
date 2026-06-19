@@ -5,8 +5,10 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::canvas::{Canvas, Circle, Line as CanvasLine},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
+    widgets::{
+        Block, Borders, Clear, List, ListItem, ListState, Paragraph,
+        canvas::{Canvas, Circle, Line as CanvasLine},
+    },
 };
 
 use crate::tui::Tui;
@@ -17,7 +19,7 @@ use agents::AgentView;
 
 #[derive(Default)]
 pub struct TuiView {
-    activities: Vec<HiveResponse>,
+    pub activities: Vec<HiveResponse>,
     agents: Vec<AgentView>,
 }
 
@@ -211,12 +213,31 @@ fn draw_input_bar(f: &mut Frame, area: Rect, input: &str) {
 
     f.render_widget(paragraph, area);
 }
-
 fn draw_activity_log(f: &mut Frame, area: Rect, activity: &[HiveResponse]) {
+    let inner_width = area.width.saturating_sub(2) as usize; // account for borders
+
     let items: Vec<ListItem> = activity
         .iter()
-        .rev()
-        .map(|e| ListItem::new(e.text.as_str()))
+        .flat_map(|e| {
+            // Word-wrap each message to fit the box
+            textwrap::wrap(&e.text, inner_width)
+                .into_iter()
+                .map(|line| ListItem::new(line.to_string()))
+                .collect::<Vec<_>>()
+        })
         .collect();
-    f.render_widget(List::new(items).block(border("activity")), area);
+
+    // Scroll to bottom by selecting the last item
+    let mut state = ListState::default();
+    if !items.is_empty() {
+        state.select(Some(items.len() - 1));
+    }
+
+    f.render_stateful_widget(
+        List::new(items)
+            .block(border("activity"))
+            .highlight_style(Style::default()), // no highlight visual
+        area,
+        &mut state,
+    );
 }

@@ -4,12 +4,11 @@
 //! and a control surface for manual hive operations.
 
 mod input;
-mod ui;
+use hive::core::{Hive, HiveCommand, HiveResponse};
 
-use crate::{
-    hive::{self, HiveCommand, HiveResponse},
-    tui::ui::TuiView,
-};
+mod ui;
+use ui::TuiView;
+
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::{Terminal, prelude::CrosstermBackend};
 use std::io;
@@ -38,7 +37,7 @@ struct Tui {
 use tokio::sync::broadcast::error::TryRecvError;
 pub fn run(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    hive: &hive::Hive,
+    hive: &Hive,
 ) -> anyhow::Result<()> {
     let mut tui = Tui::default();
     let tx = hive.sender();

@@ -11,8 +11,7 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 
-mod hive;
-mod pods;
+use hive::core::Hive;
 mod tui;
 
 fn main() -> Result<()> {
@@ -27,7 +26,7 @@ fn main() -> Result<()> {
 
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
-    let hive = hive::Hive::new();
+    let hive = Hive::new();
 
     let result = tui::run(&mut terminal, &hive);
 

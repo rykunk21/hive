@@ -9,8 +9,10 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 
+use crate::tui::Tui;
+use hive::core::HiveResponse;
+
 use crate::tui::TuiState;
-use crate::{hive::HiveResponse, tui::Tui};
 use agents::AgentView;
 
 #[derive(Default)]

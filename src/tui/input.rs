@@ -1,7 +1,7 @@
 //! Keyboard input handling — maps keystrokes to TUI actions.
 //!
 //! Supports vim-style navigation and single-key commands for pod lifecycle
-use crate::hive::HiveCommand;
+use hive::core::HiveCommand;
 
 /// management. All real actions are stubbed until hive implements them.
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};

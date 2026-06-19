@@ -11,10 +11,7 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 
-mod config;
-mod hive;
-mod pod;
-mod pods;
+use hive::core::Hive;
 mod tui;
 
 fn main() -> Result<()> {
@@ -29,12 +26,9 @@ fn main() -> Result<()> {
 
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
-    let mut hive = hive::Hive::new();
+    let hive = Hive::new();
 
-    // TODO: Register built-in pod types with hive.registry
-    // hive.registry.register("speaker", Box::new(|| Box::new(pods::speaker::SpeakerPod::default())));
-
-    let result = tui::run(&mut terminal, &mut hive);
+    let result = tui::run(&mut terminal, &hive);
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;

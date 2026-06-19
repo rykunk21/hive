@@ -14,15 +14,10 @@
 //!
 //! - [`speaker::SpeakerPod`] — chat interface via LLM loop
 //!
-//! # Example
-//!
-//! ```rust,ignore
-//! use hive::pods::SpeakerPod;
-//! use hive::pod::{Pod, PodRegistry};
-//!
-//! let mut registry = PodRegistry::new();
-//! registry.register("speaker", Box::new(|| Box::new(SpeakerPod::default())));
-//! ```
+#![allow(dead_code)]
+
+pub mod pod;
+use pod::Pod;
 
 pub mod ping;
 pub mod speaker;

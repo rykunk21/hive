@@ -1,4 +1,5 @@
 //! TUI rendering — draws the hive dashboard.
+mod agents;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -8,10 +9,19 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 
-use crate::tui::TuiState;
-use crate::{hive::ActivityEvent, tui::Tui};
+use crate::tui::Tui;
+use hive::core::HiveResponse;
 
-pub fn draw(f: &mut Frame, tui: &Tui, activity: &Vec<ActivityEvent>) {
+use crate::tui::TuiState;
+use agents::AgentView;
+
+#[derive(Default)]
+pub struct TuiView {
+    activities: Vec<HiveResponse>,
+    agents: Vec<AgentView>,
+}
+
+pub fn draw(f: &mut Frame, tui: &Tui) {
     let area = f.area();
 
     let rows = Layout::default()
@@ -29,8 +39,8 @@ pub fn draw(f: &mut Frame, tui: &Tui, activity: &Vec<ActivityEvent>) {
         .split(rows[0]);
 
     draw_agent_status(f, columns[0]);
-    draw_hive_graph(f, columns[1]);
-    draw_activity_log(f, rows[1], activity);
+    draw_hive_world(f, columns[1]);
+    draw_activity_log(f, rows[1], &tui.view.activities);
     draw_input_bar(f, rows[2], &tui.bar_input);
 
     if let TuiState::Spawn = tui.state {
@@ -125,7 +135,7 @@ fn agent_item(name: &str, task: &str, state: AgentState) -> ListItem<'static> {
 /// Coordinates are in a logical [0, 100] space — Canvas scales to fit.
 ///
 /// TODO: Derive positions and edges from hive.topology().
-fn draw_hive_graph(f: &mut Frame, area: Rect) {
+fn draw_hive_world(f: &mut Frame, area: Rect) {
     // Hardcoded node positions in logical [0,100] space.
     let nodes: &[(&str, f64, f64, Color)] = &[
         ("planner-0", 50.0, 75.0, Color::Green),
@@ -202,7 +212,7 @@ fn draw_input_bar(f: &mut Frame, area: Rect, input: &str) {
     f.render_widget(paragraph, area);
 }
 
-fn draw_activity_log(f: &mut Frame, area: Rect, activity: &Vec<ActivityEvent>) {
+fn draw_activity_log(f: &mut Frame, area: Rect, activity: &[HiveResponse]) {
     let items: Vec<ListItem> = activity
         .iter()
         .rev()
@@ -210,4 +220,3 @@ fn draw_activity_log(f: &mut Frame, area: Rect, activity: &Vec<ActivityEvent>) {
         .collect();
     f.render_widget(List::new(items).block(border("activity")), area);
 }
-

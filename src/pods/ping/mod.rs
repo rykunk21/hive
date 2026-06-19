@@ -1,7 +1,7 @@
 use actix::dev::{MessageResponse, OneshotSender};
 use actix::prelude::*;
 
-/// Type of message that LLM can recieve
+/// Type of message that ping can recieve
 #[derive(Message)]
 #[rtype(result = "PingResponses")]
 pub enum PingMessages {
@@ -9,7 +9,7 @@ pub enum PingMessages {
     Pong,
 }
 
-/// Type of messages that LLM can return
+/// Type of messages that ping can return
 pub enum PingResponses {
     GotPing,
     GotPong,
@@ -20,9 +20,9 @@ where
     A: Actor,
     M: Message<Result = PingResponses>,
 {
-    fn handle(self, ctx: &mut A::Context, tx: Option<OneshotSender<M::Result>>) {
+    fn handle(self, _ctx: &mut A::Context, tx: Option<OneshotSender<M::Result>>) {
         if let Some(tx) = tx {
-            tx.send(self);
+            let _ = tx.send(self);
         }
     }
 }
@@ -34,13 +34,9 @@ pub struct Ping;
 impl Actor for Ping {
     type Context = Context<Self>;
 
-    fn started(&mut self, _ctx: &mut Context<Self>) {
-        println!("Actor is alive");
-    }
+    fn started(&mut self, _ctx: &mut Context<Self>) {}
 
-    fn stopped(&mut self, _ctx: &mut Context<Self>) {
-        println!("Actor is stopped");
-    }
+    fn stopped(&mut self, _ctx: &mut Context<Self>) {}
 }
 
 /// Define handler for `Messages` enum

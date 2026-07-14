@@ -23,8 +23,6 @@ pub fn handle_key(key: KeyEvent) -> Option<HiveCommand> {
         /*
         (KeyCode::Down | KeyCode::Char('j'), _) => Some(Action::SelectNext),
         (KeyCode::Up | KeyCode::Char('k'), _) => Some(Action::SelectPrev),
-        (KeyCode::Char('u'), KeyModifiers::CONTROL) => Some(Action::ScrollUp),
-        (KeyCode::Char('d'), KeyModifiers::CONTROL) => Some(Action::ScrollDown),
         */
         // Pod lifecycle — stubbed until Hive::spawn_pod / Hive::kill_pod exist
         (KeyCode::Char('s'), KeyModifiers::CONTROL) => {

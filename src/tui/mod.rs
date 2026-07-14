@@ -80,6 +80,7 @@ pub fn run(
                     }
 
                     HiveCommand::SpawnPod => {
+                        let _ = tx.try_send(HiveCommand::SpawnPod);
                         tui.state = match tui.state {
                             TuiState::Spawn => TuiState::Home,
                             _ => TuiState::Spawn,

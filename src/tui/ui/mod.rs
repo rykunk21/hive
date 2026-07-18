@@ -11,8 +11,8 @@ use ratatui::{
     },
 };
 
+use crate::core::HiveResponse;
 use crate::tui::Tui;
-use hive::core::HiveResponse;
 
 use crate::tui::TuiState;
 use agents::AgentView;

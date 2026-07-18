@@ -15,8 +15,8 @@
 //! - [`speaker::SpeakerPod`] — chat interface via LLM loop
 //!
 #![allow(dead_code)]
-
 pub mod pod;
+
 use pod::Pod;
 
 pub mod ping;

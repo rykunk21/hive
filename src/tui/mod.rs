@@ -4,7 +4,7 @@
 //! and a control surface for manual hive operations.
 
 mod input;
-use hive::core::{Hive, HiveCommand, HiveResponse};
+use crate::core::{Hive, HiveCommand, HiveResponse};
 
 mod ui;
 use ui::TuiView;
@@ -42,7 +42,6 @@ pub fn run(
     let mut tui = Tui::default();
     let tx = hive.sender();
     let mut rx = hive.subscribe();
-    let mut activity = vec![];
 
     loop {
         // --- DRAIN EVENTS FROM HIVE ---
@@ -51,7 +50,7 @@ pub fn run(
         // In your event drain loop:
         loop {
             match rx.try_recv() {
-                Ok(event) => activity.push(event),
+                Ok(event) => tui.view.activities.push(event),
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Closed) => return Ok(()),
                 Err(TryRecvError::Lagged(n)) => {
@@ -74,11 +73,14 @@ pub fn run(
                         let text = tui.bar_input.drain(..).collect::<String>();
 
                         // display a copy of the input
-                        activity.push(HiveResponse { text: text.clone() });
+                        tui.view
+                            .activities
+                            .push(HiveResponse { text: text.clone() });
                         let _ = tx.try_send(HiveCommand::Submit(text));
                     }
 
                     HiveCommand::SpawnPod => {
+                        let _ = tx.try_send(HiveCommand::SpawnPod);
                         tui.state = match tui.state {
                             TuiState::Spawn => TuiState::Home,
                             _ => TuiState::Spawn,

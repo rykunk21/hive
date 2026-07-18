@@ -117,7 +117,9 @@ async fn hive_loop(internal: InternalHandle) {
                 }
             }
             Some(HiveCommand::SpawnPod) => {
-                // Handle spawn...
+                let _ = events_tx.send(HiveResponse {
+                    text: "Spawnning a pod".into(),
+                });
             }
             Some(HiveCommand::Submit(text)) => {
                 let res = speak.send(SpeakerMessage::Prompt(text.clone())).await;

@@ -11,8 +11,7 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 
-use hive::core::Hive;
-mod tui;
+use hive::{core::Hive, tui};
 
 fn main() -> Result<()> {
     env_logger::Builder::new()

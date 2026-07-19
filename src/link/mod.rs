@@ -16,19 +16,34 @@
 use actix::dev::{MessageResponse, OneshotSender};
 use actix::prelude::*;
 
+/// Serves as the configuration for a pod
+#[derive(Clone, Debug)]
+pub struct PodConfig {
+    // should be able to do things like specify skills
+    // preamble prompts
+    // genome structure (maybe this can evolve too)
+    rows: u8,
+    cols: u8,
+}
+impl PodConfig {
+    pub fn new() -> PodConfig {
+        todo!()
+    }
+}
+
 /// Type of message that pod can recieve from hive
 #[derive(Message)]
 #[rtype(result = "PodResponse")]
 pub enum PodMessage {
     Kill,
     Replicate,
+    Spawn(PodConfig),
     Query(String),
 }
 
 /// Type of messages that pod can return to hive
 pub enum PodResponse {
-    Ok(String),
-    Err,
+    Response(String),
 }
 
 impl<A, M> MessageResponse<A, M> for PodResponse

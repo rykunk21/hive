@@ -1,11 +1,15 @@
 //! Hive core runtimeuse std::collections::HashMap;
+use std::collections::HashMap;
+
+use crate::link::{PodConfig, PodMessage, PodResponse};
 use crate::pods::{
     ping::{Ping, PingMessages, PingResponses},
+    pod::Pod,
     speaker::{Speaker, SpeakerMessage, SpeakerResponse},
 };
 use actix::prelude::*;
+use log::{debug, error, info, trace, warn};
 use tokio::sync::{broadcast, mpsc};
-
 // ---------------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------------
@@ -13,7 +17,7 @@ use tokio::sync::{broadcast, mpsc};
 pub enum HiveCommand {
     Ping,
     Submit(String),
-    SpawnPod,
+    SpawnPod(PodConfig),
 }
 
 #[derive(Clone, Debug)]
@@ -86,18 +90,14 @@ impl Default for Hive {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Hive event loop — runs inside actix on a background thread
-// ---------------------------------------------------------------------------
-
-async fn hive_loop(internal: InternalHandle) {
+pub async fn hive_loop(internal: InternalHandle) {
     let mut cmd_rx = internal.cmd_rx;
     let events_tx = internal.events_tx;
+    let mut pods: HashMap<u64, Addr<Pod>> = HashMap::new();
+    let mut next_id: u64 = 0;
 
     // Start your actor(s) inside the actix system
     let ping = Ping.start();
-    let speak = Speaker::new().start();
-
     loop {
         // Receive command from Hive
         match cmd_rx.recv().await {
@@ -116,25 +116,21 @@ async fn hive_loop(internal: InternalHandle) {
                     let _ = events_tx.send(HiveResponse { text });
                 }
             }
-            Some(HiveCommand::SpawnPod) => {
+            Some(HiveCommand::SpawnPod(config)) => {
+                let pod = Pod::new(config).start();
+                pods.insert(next_id, pod);
                 let _ = events_tx.send(HiveResponse {
-                    text: "Spawnning a pod".into(),
+                    text: format!("spawned pod {}", next_id),
                 });
+                next_id += 1;
             }
-            Some(HiveCommand::Submit(text)) => {
-                let res = speak.send(SpeakerMessage::Prompt(text.clone())).await;
-                match res {
-                    Ok(SpeakerResponse::Response(r)) => {
-                        let _ = events_tx.send(HiveResponse { text: r });
-                    }
-                    Err(mailbox_err) => {
-                        panic!("Speaker Response Err: {}", mailbox_err)
-                    }
-                }
+            Some(HiveCommand::Submit(s)) => {
+                // this function will add a query to a queue, to which the pods will check and
+                // attempt to work on
+                todo!();
             }
-            None => {
-                // All senders dropped, channel closed — shut down
-                break;
+            _ => {
+                panic!("Dont know what is happening here")
             }
         }
     }

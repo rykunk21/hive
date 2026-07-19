@@ -1,7 +1,7 @@
 //! Keyboard input handling — maps keystrokes to TUI actions.
 //!
 //! Supports vim-style navigation and single-key commands for pod lifecycle
-use crate::core::HiveCommand;
+use crate::{core::HiveCommand, link::PodConfig};
 
 /// management. All real actions are stubbed until hive implements them.
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -25,11 +25,6 @@ pub fn handle_key(key: KeyEvent) -> Option<HiveCommand> {
         (KeyCode::Up | KeyCode::Char('k'), _) => Some(Action::SelectPrev),
         */
         // Pod lifecycle — stubbed until Hive::spawn_pod / Hive::kill_pod exist
-        (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
-            // TODO: Prompt for pod type, then Some(Action::SpawnPod(type_name))
-            Some(HiveCommand::SpawnPod)
-        }
-
         _ => None,
     }
 }

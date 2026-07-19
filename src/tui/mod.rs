@@ -79,12 +79,9 @@ pub fn run(
                         let _ = tx.try_send(HiveCommand::Submit(text));
                     }
 
-                    HiveCommand::SpawnPod => {
-                        let _ = tx.try_send(HiveCommand::SpawnPod);
-                        tui.state = match tui.state {
-                            TuiState::Spawn => TuiState::Home,
-                            _ => TuiState::Spawn,
-                        }
+                    // this is going to need to be gated in input.rs
+                    HiveCommand::SpawnPod(config) => {
+                        let _ = tx.try_send(HiveCommand::SpawnPod(config));
                     }
                     HiveCommand::Ping => {
                         let _ = tx.try_send(HiveCommand::Ping);
@@ -95,11 +92,19 @@ pub fn run(
                     // Quit
                     (KeyCode::Char('q'), _) => return Ok(()),
                     (KeyCode::Char('c'), KeyModifiers::CONTROL) => return Ok(()),
-
+                    (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
+                        // TODO: Prompt for pod type, then Some(Action::SpawnPod(type_name))
+                        // TODO: Prompt for a config to spawn with
+                        match tui.state {
+                            TuiState::Spawn => tui.state = TuiState::Home,
+                            _ => tui.state = TuiState::Spawn,
+                        }
+                    }
                     (KeyCode::Char(c), _) => tui.bar_input.push(c),
                     (KeyCode::Backspace, _) => {
                         tui.bar_input.pop();
                     }
+
                     _ => {}
                 }
             }

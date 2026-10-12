@@ -2,17 +2,15 @@
 //!
 //! Boots the terminal UI, initializes the Hive runtime, and runs the main loop.
 
-use std::io;
-
 use anyhow::Result;
 use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
+use std::io;
 
-use hive::core::Hive;
-mod tui;
+use hive::{core::Hive, tui};
 
 fn main() -> Result<()> {
     env_logger::Builder::new()

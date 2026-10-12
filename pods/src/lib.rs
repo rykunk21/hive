@@ -7,3 +7,4 @@ pub mod core;
 pub mod knowledge;
 pub mod link;
 pub mod pods;
+pub mod tui;

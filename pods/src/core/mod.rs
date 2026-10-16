@@ -15,7 +15,6 @@ use tokio::sync::{broadcast, mpsc};
 pub enum HiveCommand {
     Ping,
     Submit(String),
-    SpawnPod(PodConfig),
 }
 
 #[derive(Clone, Debug)]
@@ -114,14 +113,7 @@ pub async fn hive_loop(internal: InternalHandle) {
                     let _ = events_tx.send(HiveResponse { text });
                 }
             }
-            Some(HiveCommand::SpawnPod(config)) => {
-                let pod = Pod::new(config).start();
-                pods.insert(next_id, pod);
-                let _ = events_tx.send(HiveResponse {
-                    text: format!("spawned pod {}", next_id),
-                });
-                next_id += 1;
-            }
+
             Some(HiveCommand::Submit(_s)) => {
                 // this function will add a query to a queue, to which the pods will check and
                 // attempt to work on

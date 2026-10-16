@@ -1,6 +1,6 @@
-use crate::link::{PodConfig, PodMessage, PodResponse};
-use crate::pods::genome::Genome;
-use actix::prelude::*;
+use crate::pods::{PodMessage, PodResponse, genome::Genome};
+use actix::prelude;
+use actix::{Actor, Context, Handler};
 
 const N_INPUTS: usize = 1;
 const N_NODES: usize = 8;
@@ -13,7 +13,7 @@ pub struct Pod {
 }
 
 impl Pod {
-    pub fn new(_config: PodConfig) -> Self {
+    pub fn new() -> Self {
         let seed = 18;
         Self {
             genome: Genome::random(N_INPUTS, N_NODES, N_OUTPUTS, N_FUNCS, seed),
@@ -48,12 +48,6 @@ impl Handler<PodMessage> for Pod {
                     "[Pod gen={} active={}/{}] {}",
                     self.generation, active, total, s
                 ))
-            }
-            PodMessage::Spawn(_config) => {
-                // make a new pod? This is a bit confusing because the pod is already constructed as
-                // an actor
-                // thing here
-                todo!();
             }
             _ => PodResponse::Response("No Query".into()),
         }

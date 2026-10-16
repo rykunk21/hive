@@ -5,6 +5,5 @@
 //! to implement the [`Pod`] trait and register their types with the hive.
 pub mod core;
 pub mod knowledge;
-pub mod link;
 pub mod pods;
 pub mod tui;

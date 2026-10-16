@@ -80,9 +80,6 @@ pub fn run(
                     }
 
                     // this is going to need to be gated in input.rs
-                    HiveCommand::SpawnPod(config) => {
-                        let _ = tx.try_send(HiveCommand::SpawnPod(config));
-                    }
                     HiveCommand::Ping => {
                         let _ = tx.try_send(HiveCommand::Ping);
                     }

@@ -4,7 +4,7 @@
 //! and a control surface for manual hive operations.
 
 mod input;
-use crate::core::{Hive, HiveCommand, HiveResponse};
+use crate::queue::{Hive, HiveCommand, HiveResponse};
 
 mod ui;
 use ui::TuiView;

@@ -2,9 +2,9 @@
 use std::collections::HashMap;
 
 // use crate::link::PodConfig;
-use crate::pods::{
+use crate::pod::{
+    Pod,
     ping::{Ping, PingMessages, PingResponses},
-    pod::Pod,
 };
 use actix::prelude::*;
 use tokio::sync::{broadcast, mpsc};

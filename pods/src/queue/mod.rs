@@ -2,10 +2,7 @@
 use std::collections::HashMap;
 
 // use crate::link::PodConfig;
-use crate::pod::{
-    Pod,
-    ping::{Ping, PingMessages, PingResponses},
-};
+use crate::pod::Pod;
 use actix::prelude::*;
 use tokio::sync::{broadcast, mpsc};
 // ---------------------------------------------------------------------------
@@ -94,26 +91,9 @@ pub async fn hive_loop(internal: InternalHandle) {
     let mut next_id: u64 = 0;
 
     // Start your actor(s) inside the actix system
-    let ping = Ping.start();
     loop {
         // Receive command from Hive
         match cmd_rx.recv().await {
-            Some(HiveCommand::Ping) => {
-                let ping_fut = ping.send(PingMessages::Ping);
-                let pong_fut = ping.send(PingMessages::Pong);
-
-                let (ping_res, pong_res) = futures::join!(ping_fut, pong_fut);
-
-                for (label, res) in [("Ping", ping_res), ("Pong", pong_res)] {
-                    let text = match res {
-                        Ok(PingResponses::GotPing) => format!("{}: GotPing", label),
-                        Ok(PingResponses::GotPong) => format!("{}: GotPong", label),
-                        Err(e) => format!("{} error: {}", label, e),
-                    };
-                    let _ = events_tx.send(HiveResponse { text });
-                }
-            }
-
             Some(HiveCommand::Submit(_s)) => {
                 // this function will add a query to a queue, to which the pods will check and
                 // attempt to work on

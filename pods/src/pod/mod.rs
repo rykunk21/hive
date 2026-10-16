@@ -8,9 +8,7 @@ use actix::dev::{MessageResponse, OneshotSender};
 use actix::prelude::*;
 
 mod genome;
-pub mod ping;
-
-use crate::pod::genome::Genome;
+use genome::Genome;
 
 const N_INPUTS: usize = 1;
 const N_NODES: usize = 8;

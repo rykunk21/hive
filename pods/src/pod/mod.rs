@@ -1,19 +1,58 @@
-use crate::link::{PodConfig, PodMessage, PodResponse};
-use crate::pods::genome::Genome;
+//! Pod actor module.
+//!
+//! Defines the `Pod` actor and its message protocol (`PodMessage` / `PodResponse`).
+//! Pods are evolvable units that carry a `Genome` and can respond to queries
+//! from the hive, replicate, or be shut down.
+
+use actix::dev::{MessageResponse, OneshotSender};
 use actix::prelude::*;
+
+mod genome;
+pub mod ping;
+
+use crate::pod::genome::Genome;
 
 const N_INPUTS: usize = 1;
 const N_NODES: usize = 8;
 const N_OUTPUTS: usize = 1;
 const N_FUNCS: usize = 4; // expand as you define real functions
 
+/// Type of message that pod can receive from hive
+#[derive(Message)]
+#[rtype(result = "PodResponse")]
+pub enum PodMessage {
+    Kill,
+    Replicate,
+    Query(String),
+}
+
+/// Type of messages that pod can return to hive
+#[derive(Message)]
+#[rtype(result = "()")]
+pub enum PodResponse {
+    Response(String),
+}
+
+impl<A, M> MessageResponse<A, M> for PodResponse
+where
+    A: Actor,
+    M: Message<Result = PodResponse>,
+{
+    fn handle(self, _ctx: &mut A::Context, tx: Option<OneshotSender<M::Result>>) {
+        if let Some(tx) = tx {
+            let _ = tx.send(self);
+        }
+    }
+}
+
+/// A Pod actor with an evolved genome
 pub struct Pod {
     pub genome: Genome,
     pub generation: u32,
 }
 
 impl Pod {
-    pub fn new(_config: PodConfig) -> Self {
+    pub fn new() -> Self {
         let seed = 18;
         Self {
             genome: Genome::random(N_INPUTS, N_NODES, N_OUTPUTS, N_FUNCS, seed),
@@ -31,6 +70,7 @@ impl Pod {
 
 impl Actor for Pod {
     type Context = Context<Self>;
+
     fn started(&mut self, _ctx: &mut Context<Self>) {}
     fn stopped(&mut self, _ctx: &mut Context<Self>) {}
 }
@@ -48,12 +88,6 @@ impl Handler<PodMessage> for Pod {
                     "[Pod gen={} active={}/{}] {}",
                     self.generation, active, total, s
                 ))
-            }
-            PodMessage::Spawn(_config) => {
-                // make a new pod? This is a bit confusing because the pod is already constructed as
-                // an actor
-                // thing here
-                todo!();
             }
             _ => PodResponse::Response("No Query".into()),
         }

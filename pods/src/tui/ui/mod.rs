@@ -11,7 +11,7 @@ use ratatui::{
     },
 };
 
-use crate::core::HiveResponse;
+use crate::queue::HiveResponse;
 use crate::tui::Tui;
 
 use crate::tui::TuiState;

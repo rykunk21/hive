@@ -44,10 +44,7 @@ pub fn run(
     let mut rx = hive.subscribe();
 
     loop {
-        // --- DRAIN EVENTS FROM HIVE ---
         // Non-blocking: collect all pending activity events
-
-        // In your event drain loop:
         loop {
             match rx.try_recv() {
                 Ok(event) => tui.view.activities.push(event),
@@ -70,19 +67,15 @@ pub fn run(
             if let Some(action) = input::handle_key(key) {
                 match action {
                     HiveCommand::Submit(_) => {
-                        let text = tui.bar_input.drain(..).collect::<String>();
+                        // let text = tui.bar_input.drain(..).collect::<String>();
+                        let text = std::mem::take(&mut tui.bar_input);
 
                         // display a copy of the input
                         tui.view
                             .activities
                             .push(HiveResponse { text: text.clone() });
                         let _ = tx.try_send(HiveCommand::Submit(text));
-                    }
-
-                    // this is going to need to be gated in input.rs
-                    HiveCommand::Ping => {
-                        let _ = tx.try_send(HiveCommand::Ping);
-                    }
+                    } // this is going to need to be gated in input.rs
                 }
             } else {
                 match (key.code, key.modifiers) {

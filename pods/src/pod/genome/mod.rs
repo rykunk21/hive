@@ -10,7 +10,7 @@ pub struct Node {
 }
 
 /// The genome: a fixed grid of nodes plus output pointers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Genome {
     pub nodes: Vec<Node>,
     pub outputs: Vec<usize>, // value-table indices pointing to active outputs

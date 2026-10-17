@@ -44,6 +44,7 @@ where
 }
 
 /// A Pod actor with an evolved genome
+#[derive(Default)]
 pub struct Pod {
     pub genome: Genome,
     pub generation: u32,
@@ -64,6 +65,10 @@ impl Pod {
             generation: self.generation + 1,
         }
     }
+
+    fn do_task(&self, query: String) -> String {
+        todo!()
+    }
 }
 
 impl Actor for Pod {
@@ -78,14 +83,9 @@ impl Handler<PodMessage> for Pod {
 
     fn handle(&mut self, msg: PodMessage, _ctx: &mut Context<Self>) -> Self::Result {
         match msg {
-            PodMessage::Query(s) => {
-                let active = self.genome.active_nodes().len();
-                let total = self.genome.nodes.len();
-
-                PodResponse::Response(format!(
-                    "[Pod gen={} active={}/{}] {}",
-                    self.generation, active, total, s
-                ))
+            PodMessage::Query(query) => {
+                let res = self.do_task(query);
+                PodResponse::Response(res)
             }
             _ => PodResponse::Response("No Query".into()),
         }

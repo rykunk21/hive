@@ -8,10 +8,7 @@ use crate::{
 };
 pub mod cell;
 use cell::{Cell, CellOutput};
-
-use crate::engine::dep::get_defines_and_uses;
 use ratatui_textarea::TextArea;
-use rhai::Dynamic;
 
 pub struct App {
     pub cells: Vec<Cell>,
@@ -149,7 +146,7 @@ impl App {
 
     pub fn run(&mut self) {
         let cell_id = self.cells[self.selected].id;
-        self.engine.run(cell_id, &mut self.cells);
+        let _ = self.engine.run(cell_id, &mut self.cells);
     }
 
     pub fn mark_dirty(&mut self, cell_id: usize) {

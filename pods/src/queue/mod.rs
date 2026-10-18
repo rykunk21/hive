@@ -2,15 +2,18 @@
 use std::collections::HashMap;
 
 // use crate::link::PodConfig;
-use crate::pod::Pod;
+use crate::pod::{Pod, PodMessage, PodResponse};
 use actix::prelude::*;
 use tokio::sync::{broadcast, mpsc};
+
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 // ---------------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------------
 #[derive(Clone, Debug)]
 pub enum HiveCommand {
-    Ping,
     Submit(String),
 }
 
@@ -51,11 +54,13 @@ impl Hive {
         let (cmd_tx, cmd_rx) = mpsc::channel::<HiveCommand>(64);
         let (events_tx, _events_rx) = broadcast::channel::<HiveResponse>(64);
 
+        // External interface
         let external = ExternalHandle {
             cmd_tx: cmd_tx.clone(),
             events_tx: events_tx.clone(),
         };
 
+        // Internal interface
         let internal = InternalHandle {
             cmd_rx,
             events_tx: events_tx.clone(),
@@ -69,12 +74,16 @@ impl Hive {
     }
 
     pub fn sender(&self) -> mpsc::Sender<HiveCommand> {
+        // Hive is the single consumer. We can issue a bunch of clones
         self.external.cmd_tx.clone()
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<HiveResponse> {
+        // The externals can subscribe to the hive broadcast
         self.external.events_tx.subscribe()
     }
+
+    // This function determines
 }
 
 // Default
@@ -87,21 +96,47 @@ impl Default for Hive {
 pub async fn hive_loop(internal: InternalHandle) {
     let mut cmd_rx = internal.cmd_rx;
     let events_tx = internal.events_tx;
-    let mut pods: HashMap<u64, Addr<Pod>> = HashMap::new();
-    let mut next_id: u64 = 0;
+    let mut pods: HashMap<u8, Addr<Pod>> = HashMap::new();
 
     // Start your actor(s) inside the actix system
     loop {
         // Receive command from Hive
         match cmd_rx.recv().await {
-            Some(HiveCommand::Submit(_s)) => {
+            Some(HiveCommand::Submit(s)) => {
                 // this function will add a query to a queue, to which the pods will check and
-                // attempt to work on
-                todo!();
+                // attempt to work on the task
+                if pods.is_empty() {
+                    // No pods exist, create a new one
+                    let pod = Pod::new().start();
+                    let id = hash(&pod);
+                    pods.insert(id, pod);
+
+                    // send the query and capture the response
+                    let res = match pods.get(&id).unwrap().send(PodMessage::Query(s)).await {
+                        Ok(PodResponse::Response(res)) => res,
+                        Err(e) => {
+                            format!("The pod returned an error: {}", e)
+                        }
+                    };
+
+                    // transmit the reponse back to the Subscribers
+                    let _ = events_tx.send(HiveResponse { text: res });
+                    // let _ = events_tx.send(HiveStatus);
+                } else {
+                    let _ = events_tx.send(HiveResponse {
+                        text: "We have spawned an agent!".into(),
+                    });
+                }
             }
             _ => {
                 panic!("Dont know what is happening here")
             }
         }
     }
+}
+
+fn hash(pod: &Addr<Pod>) -> u8 {
+    let mut hasher = DefaultHasher::new();
+    pod.hash(&mut hasher);
+    (hasher.finish() & 0xFF) as u8
 }

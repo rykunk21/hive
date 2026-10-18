@@ -1,5 +1,4 @@
 //! TUI rendering — draws the hive dashboard.
-mod agents;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,12 +14,10 @@ use crate::queue::HiveResponse;
 use crate::tui::Tui;
 
 use crate::tui::TuiState;
-use agents::AgentView;
 
 #[derive(Default)]
 pub struct TuiView {
     pub activities: Vec<HiveResponse>,
-    agents: Vec<AgentView>,
 }
 
 pub fn draw(f: &mut Frame, tui: &Tui) {

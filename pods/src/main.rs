@@ -10,7 +10,7 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
 
-use hive::{queue::Hive, tui};
+use pods::{queue::Hive, tui};
 
 fn main() -> Result<()> {
     env_logger::Builder::new()

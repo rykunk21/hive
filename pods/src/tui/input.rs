@@ -13,9 +13,6 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 /// TODO: Wire navigation and pod lifecycle keys once hive supports the actions.
 pub fn handle_key(key: KeyEvent) -> Option<HiveCommand> {
     match (key.code, key.modifiers) {
-        // Ping
-        (KeyCode::Char('p'), KeyModifiers::CONTROL) => Some(HiveCommand::Ping),
-
         // Submit input
         (KeyCode::Enter, _) => Some(HiveCommand::Submit("".into())),
 

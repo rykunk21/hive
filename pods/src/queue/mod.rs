@@ -123,9 +123,10 @@ pub async fn hive_loop(internal: InternalHandle) {
                     let _ = events_tx.send(HiveResponse::NewAgent(id));
                 }
 
-                // get the id of the applicable agent
+                // get the id of the applicable agent (random for now)
                 let mut rng = rand::rng();
                 let id = pods.keys().choose(&mut rng).unwrap();
+
                 // send the query and capture the response
                 let res = match pods.get(&id).unwrap().send(PodMessage::Query(s)).await {
                     Ok(PodResponse::Response(res)) => res,
@@ -136,7 +137,6 @@ pub async fn hive_loop(internal: InternalHandle) {
 
                 // transmit the reponse back to the Subscribers
                 let _ = events_tx.send(HiveResponse::General(res));
-                // let _ = events_tx.send(HiveStatus);
             }
             _ => {
                 panic!("Dont know what is happening here")

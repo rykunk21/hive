@@ -82,7 +82,7 @@ pub fn run(
             } else {
                 match (key.code, key.modifiers) {
                     // Quit
-                    (KeyCode::Char('q'), _) => return Ok(()),
+                    (KeyCode::Char('q'), KeyModifiers::CONTROL) => return Ok(()),
                     (KeyCode::Char('c'), KeyModifiers::CONTROL) => return Ok(()),
                     (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                         // TODO: Prompt for pod type, then Some(Action::SpawnPod(type_name))

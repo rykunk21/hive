@@ -4,6 +4,7 @@ use std::collections::HashMap;
 // use crate::link::PodConfig;
 use crate::pod::{Pod, PodMessage, PodResponse};
 use actix::prelude::*;
+use rand::seq::IteratorRandom;
 use tokio::sync::{broadcast, mpsc};
 
 use std::collections::hash_map::DefaultHasher;
@@ -119,22 +120,23 @@ pub async fn hive_loop(internal: InternalHandle) {
                     let id = hash(&pod);
                     pods.insert(id, pod);
 
-                    // send the query and capture the response
-                    let res = match pods.get(&id).unwrap().send(PodMessage::Query(s)).await {
-                        Ok(PodResponse::Response(res)) => res,
-                        Err(e) => {
-                            format!("The pod returned an error: {}", e)
-                        }
-                    };
-
-                    // transmit the reponse back to the Subscribers
                     let _ = events_tx.send(HiveResponse::NewAgent(id));
-                    let _ = events_tx.send(HiveResponse::General(res));
-                    // let _ = events_tx.send(HiveStatus);
-                } else {
-                    let _ =
-                        events_tx.send(HiveResponse::General("We have spawned an agent!".into()));
                 }
+
+                // get the id of the applicable agent
+                let mut rng = rand::rng();
+                let id = pods.keys().choose(&mut rng).unwrap();
+                // send the query and capture the response
+                let res = match pods.get(&id).unwrap().send(PodMessage::Query(s)).await {
+                    Ok(PodResponse::Response(res)) => res,
+                    Err(e) => {
+                        format!("The pod returned an error: {}", e)
+                    }
+                };
+
+                // transmit the reponse back to the Subscribers
+                let _ = events_tx.send(HiveResponse::General(res));
+                // let _ = events_tx.send(HiveStatus);
             }
             _ => {
                 panic!("Dont know what is happening here")

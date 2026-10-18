@@ -1,0 +1,3 @@
+This file is going to serve to build and serve all the services that make the hive app work. Since its running in a container, we will perform registry over tailscale that allows the agent to use tailSSH to access and execute on remotes, given permission
+
+Further, the agent will expose a webhook that allows authenticated github actions to trigger agent behavior. This webhook url can be extended to kick the agent into other actions as well. Needs tailscale funnel and robust security mechanisms in place

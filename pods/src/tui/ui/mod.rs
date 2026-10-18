@@ -17,7 +17,8 @@ use crate::tui::TuiState;
 
 #[derive(Default)]
 pub struct TuiView {
-    pub activities: Vec<HiveResponse>,
+    pub activities: Vec<String>,
+    pub agents: Vec<u8>,
 }
 
 pub fn draw(f: &mut Frame, tui: &Tui) {
@@ -37,8 +38,8 @@ pub fn draw(f: &mut Frame, tui: &Tui) {
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(rows[0]);
 
-    draw_agent_status(f, columns[0]);
-    draw_hive_world(f, columns[1]);
+    draw_agent_status(f, columns[0], &tui.view.agents);
+    draw_hive_world(f, columns[1], &tui.view.agents);
     draw_activity_log(f, rows[1], &tui.view.activities);
     draw_input_bar(f, rows[2], &tui.bar_input);
 
@@ -94,38 +95,18 @@ fn border(title: &str) -> Block<'_> {
 }
 
 /// Left panel: one row per agent with status indicator and metadata.
-///
-/// TODO: Query hive.agents() for real agent snapshots.
-fn draw_agent_status(f: &mut Frame, area: Rect) {
-    // Each agent gets: status dot | name | current task (dimmed)
-    let items: Vec<ListItem> = vec![
-        agent_item("planner-0", "routing goal", AgentState::Running),
-        agent_item("planner-1", "idle", AgentState::Idle),
-        agent_item("retriever-0", "fetch context chunk", AgentState::Running),
-        agent_item("summarizer-0", "—", AgentState::Error),
-    ];
+fn draw_agent_status(f: &mut Frame, area: Rect, agents: &Vec<u8>) {
+    let items: Vec<ListItem> = agents
+        .iter()
+        .map(|id| {
+            ListItem::new(Line::from(vec![
+                Span::styled("  ● ", Style::default().fg(Color::Green)),
+                Span::styled(format!("pod-{}", id), Style::default().fg(Color::White)),
+            ]))
+        })
+        .collect();
 
     f.render_widget(List::new(items).block(border("agents")), area);
-}
-
-enum AgentState {
-    Running,
-    Idle,
-    Error,
-}
-
-fn agent_item(name: &str, task: &str, state: AgentState) -> ListItem<'static> {
-    let (dot, color) = match state {
-        AgentState::Running => ("● ", Color::Green),
-        AgentState::Idle => ("○ ", Color::DarkGray),
-        AgentState::Error => ("✖ ", Color::Red),
-    };
-    ListItem::new(Line::from(vec![
-        Span::styled(format!("  {dot}"), Style::default().fg(color)),
-        Span::styled(name.to_string(), Style::default().fg(Color::White)),
-        Span::raw("  "),
-        Span::styled(task.to_string(), Style::default().fg(Color::DarkGray)),
-    ]))
 }
 
 /// Right panel: Canvas-based graph overlay of the hive topology.
@@ -134,53 +115,63 @@ fn agent_item(name: &str, task: &str, state: AgentState) -> ListItem<'static> {
 /// Coordinates are in a logical [0, 100] space — Canvas scales to fit.
 ///
 /// TODO: Derive positions and edges from hive.topology().
-fn draw_hive_world(f: &mut Frame, area: Rect) {
-    // Hardcoded node positions in logical [0,100] space.
-    let nodes: &[(&str, f64, f64, Color)] = &[
-        ("planner-0", 50.0, 75.0, Color::Green),
-        ("planner-1", 30.0, 75.0, Color::DarkGray),
-        ("retriever-0", 70.0, 50.0, Color::Green),
-        ("summarizer-0", 50.0, 25.0, Color::Red),
-    ];
+fn draw_hive_world(f: &mut Frame, area: Rect, agents: &Vec<u8>) {
+    let count = agents.len();
+    let nodes: Vec<(String, f64, f64, Color)> = agents
+        .iter()
+        .enumerate()
+        .map(|(i, id)| {
+            let angle = 2.0 * std::f64::consts::PI * (i as f64) / (count.max(1) as f64);
+            let x = 50.0 + 35.0 * angle.cos();
+            let y = 50.0 + 35.0 * angle.sin();
+            (format!("pod-{}", id), x, y, Color::Green)
+        })
+        .collect();
 
-    // Edges as (from_index, to_index)
-    let edges: &[(usize, usize)] = &[(0, 2), (1, 2), (2, 3)];
+    let edges: Vec<(usize, usize)> = (0..count)
+        .flat_map(|i| (0..count).map(move |j| (i, j)))
+        .filter(|(i, j)| i != j)
+        .collect();
 
     let canvas = Canvas::default()
         .block(border("hive"))
         .x_bounds([0.0, 100.0])
         .y_bounds([0.0, 100.0])
-        .paint(|ctx| {
-            // Draw edges first so nodes render on top
-            for &(a, b) in edges {
-                let (_, x1, y1, _) = nodes[a];
-                let (_, x2, y2, _) = nodes[b];
-                ctx.draw(&CanvasLine {
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    color: Color::DarkGray,
-                });
-            }
+        .paint({
+            let nodes = nodes;
+            let edges = edges;
+            move |ctx| {
+                // Draw edges first so nodes render on top
+                for &(a, b) in &edges {
+                    let (_, x1, y1, _) = nodes[a];
+                    let (_, x2, y2, _) = nodes[b];
+                    ctx.draw(&CanvasLine {
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                        color: Color::DarkGray,
+                    });
+                }
 
-            // Draw nodes
-            for &(label, x, y, color) in nodes {
-                ctx.draw(&Circle {
-                    x,
-                    y,
-                    radius: 2.0,
-                    color,
-                });
-                // Labels sit slightly above each node
-                ctx.print(
-                    x - 4.0,
-                    y + 4.0,
-                    Span::styled(
-                        label,
-                        Style::default().fg(color).add_modifier(Modifier::BOLD),
-                    ),
-                );
+                // Draw nodes
+                for (label, x, y, color) in &nodes {
+                    ctx.draw(&Circle {
+                        x: *x,
+                        y: *y,
+                        radius: 2.0,
+                        color: *color,
+                    });
+                    // Labels sit slightly above each node
+                    ctx.print(
+                        x - 4.0,
+                        y + 4.0,
+                        Span::styled(
+                            label.clone(),
+                            Style::default().fg(*color).add_modifier(Modifier::BOLD),
+                        ),
+                    );
+                }
             }
         });
 
@@ -210,14 +201,14 @@ fn draw_input_bar(f: &mut Frame, area: Rect, input: &str) {
 
     f.render_widget(paragraph, area);
 }
-fn draw_activity_log(f: &mut Frame, area: Rect, activity: &[HiveResponse]) {
+fn draw_activity_log(f: &mut Frame, area: Rect, activity: &[String]) {
     let inner_width = area.width.saturating_sub(2) as usize; // account for borders
 
     let items: Vec<ListItem> = activity
         .iter()
         .flat_map(|e| {
             // Word-wrap each message to fit the box
-            textwrap::wrap(&e.text, inner_width)
+            textwrap::wrap(e, inner_width)
                 .into_iter()
                 .map(|line| ListItem::new(line.to_string()))
                 .collect::<Vec<_>>()

@@ -18,8 +18,16 @@ pub enum HiveCommand {
 }
 
 #[derive(Clone, Debug)]
-pub struct HiveResponse {
-    pub text: String,
+pub enum HiveResponse {
+    General(String),
+    Status(HiveStatus),
+    NewAgent(u8),
+}
+
+/// Track the status of the hive
+#[derive(Clone, Debug)]
+pub struct HiveStatus {
+    agents: Vec<u8>,
 }
 
 // ---------------------------------------------------------------------------
@@ -120,12 +128,12 @@ pub async fn hive_loop(internal: InternalHandle) {
                     };
 
                     // transmit the reponse back to the Subscribers
-                    let _ = events_tx.send(HiveResponse { text: res });
+                    let _ = events_tx.send(HiveResponse::NewAgent(id));
+                    let _ = events_tx.send(HiveResponse::General(res));
                     // let _ = events_tx.send(HiveStatus);
                 } else {
-                    let _ = events_tx.send(HiveResponse {
-                        text: "We have spawned an agent!".into(),
-                    });
+                    let _ =
+                        events_tx.send(HiveResponse::General("We have spawned an agent!".into()));
                 }
             }
             _ => {

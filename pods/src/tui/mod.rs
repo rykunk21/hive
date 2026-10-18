@@ -47,7 +47,11 @@ pub fn run(
         // Non-blocking: collect all pending activity events
         loop {
             match rx.try_recv() {
-                Ok(event) => tui.view.activities.push(event),
+                Ok(event) => match event {
+                    HiveResponse::General(text) => tui.view.activities.push(text),
+                    HiveResponse::NewAgent(id) => tui.view.agents.push(id),
+                    _ => panic!("unknown type of event"),
+                },
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Closed) => return Ok(()),
                 Err(TryRecvError::Lagged(n)) => {
@@ -71,11 +75,9 @@ pub fn run(
                         let text = std::mem::take(&mut tui.bar_input);
 
                         // display a copy of the input
-                        tui.view
-                            .activities
-                            .push(HiveResponse { text: text.clone() });
+                        tui.view.activities.push(text.clone());
                         let _ = tx.try_send(HiveCommand::Submit(text));
-                    } // this is going to need to be gated in input.rs
+                    }
                 }
             } else {
                 match (key.code, key.modifiers) {

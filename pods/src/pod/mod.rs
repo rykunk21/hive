@@ -4,11 +4,18 @@
 //! Pods are evolvable units that carry a `Genome` and can respond to queries
 //! from the hive, replicate, or be shut down.
 
+use std::pin::Pin;
+
 use actix::dev::{MessageResponse, OneshotSender};
 use actix::prelude::*;
 
 mod genome;
+mod providers;
 use genome::Genome;
+
+use crate::pod::providers::Provider;
+
+type TaskFuture = Pin<Box<dyn Future<Output = anyhow::Result<String>>>>;
 
 const N_INPUTS: usize = 1;
 const N_NODES: usize = 8;
@@ -48,6 +55,7 @@ where
 pub struct Pod {
     pub genome: Genome,
     pub generation: u32,
+    provider: Provider,
 }
 
 impl Pod {
@@ -56,18 +64,17 @@ impl Pod {
         Self {
             genome: Genome::random(N_INPUTS, N_NODES, N_OUTPUTS, N_FUNCS, seed),
             generation: 0,
+            ..Default::default()
         }
     }
 
-    pub fn breed(&self, seed: u64) -> Self {
-        Self {
-            genome: self.genome.mutate(3, N_FUNCS, seed),
-            generation: self.generation + 1,
-        }
-    }
+    fn do_task(&self, query: String) -> TaskFuture {
+        // --- synchronous logic goes here (read genome, validate, build prompt...) ---
+        let provider = self.provider.clone(); // owned
+        let query = query.trim().to_owned(); // example of sync preprocessing
 
-    fn do_task(&self, query: String) -> String {
-        todo!()
+        // --- only owned values move into the future ---
+        Box::pin(async move { provider.chat(query).await })
     }
 }
 
@@ -79,15 +86,20 @@ impl Actor for Pod {
 }
 
 impl Handler<PodMessage> for Pod {
-    type Result = PodResponse;
+    type Result = ResponseFuture<PodResponse>;
 
     fn handle(&mut self, msg: PodMessage, _ctx: &mut Context<Self>) -> Self::Result {
         match msg {
             PodMessage::Query(query) => {
-                let res = self.do_task(query);
-                PodResponse::Response(res)
+                let fut = self.do_task(query); // sync part runs now, borrow of self ends here
+                Box::pin(async move {
+                    match fut.await {
+                        Ok(response) => PodResponse::Response(response),
+                        Err(e) => PodResponse::Response(format!("Provider error: {}", e)),
+                    }
+                })
             }
-            _ => PodResponse::Response("No Query".into()),
+            _ => Box::pin(async { PodResponse::Response("Pod Handler Error!".into()) }),
         }
     }
 }
